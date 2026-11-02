@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-from-scratch"
+version = "0.1.0"
+description = "Educational, Python-only, offline-capable LLM pipeline with a minimal NiceGUI web UI"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "llm-from-scratch contributors" }]
+keywords = ["llm", "education", "from-scratch", "nicegui", "rocm", "amd"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Runtime dependencies (core pipeline)
+dependencies = [
+    "numpy>=1.26",
+    "torch>=2.2",
+    "PyYAML>=6.0",
+    "nicegui>=1.4",
+]
+
+[project.optional-dependencies]
+# Optional visualization (plots, projections)
+viz = [
+    "matplotlib>=3.8",
+    "scikit-learn>=1.3",
+    "umap-learn>=0.5",
+]
+# Development / testing
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["core", "core.*", "apps", "apps.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

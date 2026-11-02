@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Run outputs (keep the folder, ignore its contents)
+artifacts/*
+!artifacts/.gitkeep
+
+# Local caches / temp
+.cache/
+*.log
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
