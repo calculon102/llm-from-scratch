@@ -55,9 +55,27 @@ pip install torch --index-url https://download.pytorch.org/whl/rocm6.2
 
 The device manager (T-006) auto-detects ROCm/CPU at startup and logs the chosen device and precision.
 
+## Configuration
+
+Runs are driven by YAML profiles passed via `--config`. Every config is
+validated against a schema (unknown keys, wrong types, out-of-range values,
+duplicate keys, and malformed YAML all produce a clear, aggregated error).
+Missing optional keys are filled with defaults.
+
+```bash
+python -m scripts.check_config --config configs/tiny_debug.yaml
+```
+
+Common fields: `run_name`, `seed`, `device` (`auto`/`cpu`/`cuda`), `amp`,
+`profile` (ladder `tiny_debug → tiny_train → small → medium → max_7900xtx`),
+`output_dir`, `log_interval`, `batch_size`, `learning_rate`, `epochs`,
+`max_steps`, `val_split`, `save_interval`, `phase` (`xor`/`tokenizer`/
+`embeddings`/`gpt`), and `phase_config` (phase-specific settings, validated
+by the phase module). See `configs/tiny_debug.yaml` for a sample.
+
 ## Running
 
-Once the config loader (T-003) and trainer (T-005) land, runs are driven by YAML profiles:
+Once the trainer (T-005) lands, runs are driven by YAML profiles:
 
 ```bash
 python -m scripts.train --config configs/xxx.yaml

@@ -1,0 +1,18 @@
+# Sample profile: tiny_debug — the fastest profile in the ladder
+# (tiny_debug -> tiny_train -> small -> medium -> max_7900xtx).
+# Intended for smoke tests and CI; should run in seconds on CPU.
+run_name: tiny_debug
+seed: 42
+device: auto
+amp: false
+profile: tiny_debug
+output_dir: artifacts
+log_interval: 5
+batch_size: 8
+learning_rate: 0.05
+epochs: 50
+val_split: 0.25
+save_interval: 25
+# Phase-specific settings go in phase_config (validated by the phase
+# module that registers its schema, e.g. XOR in T-101).
+phase_config: {}
