@@ -129,10 +129,14 @@ def test_phase_config_validated_by_registered_schema():
         return errors
 
     config.register_phase_schema("xor", xor_validator)
-    with pytest.raises(ConfigError, match="'hidden_units' is required"):
-        validate_config({"phase": "xor", "phase_config": {}})
-    cfg = validate_config({"phase": "xor", "phase_config": {"hidden_units": 8}})
-    assert cfg["phase_config"] == {"hidden_units": 8}
+    try:
+        with pytest.raises(ConfigError, match="'hidden_units' is required"):
+            validate_config({"phase": "xor", "phase_config": {}})
+        cfg = validate_config({"phase": "xor", "phase_config": {"hidden_units": 8}})
+        assert cfg["phase_config"] == {"hidden_units": 8}
+    finally:
+        # Don't leak the mock schema into other tests' processes.
+        config._PHASE_SCHEMAS.pop("xor", None)
 
 
 def test_register_unknown_phase_rejected():

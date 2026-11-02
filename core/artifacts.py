@@ -145,7 +145,10 @@ class RunArtifacts:
     def logger(self) -> logging.Logger:
         """A logger that writes to ``run.log`` and mirrors to the console."""
         if self._logger is None:
-            logger = logging.getLogger(self.run_dir.name)
+            # The full run dir path keeps logger names unique across output
+            # roots (basenames can collide for same-name runs in the same
+            # second, which would make a run inherit another run's handlers).
+            logger = logging.getLogger(f"llm_from_scratch.run.{self.run_dir}")
             logger.setLevel(logging.INFO)
             logger.propagate = False
             if not logger.handlers:

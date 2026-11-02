@@ -75,11 +75,18 @@ by the phase module). See `configs/tiny_debug.yaml` for a sample.
 
 ## Running
 
-Once the trainer (T-005) lands, runs are driven by YAML profiles:
+Training runs are driven by YAML profiles and the shared Trainer loop
+(T-005):
 
 ```bash
-python -m scripts.train --config configs/xxx.yaml
+python -m scripts.train --config configs/xxx.yaml [--resume PATH]
 ```
+
+The config's `phase` (`xor`/`tokenizer`/`embeddings`/`gpt`) selects the
+phase module, which registers a factory building model + datasets +
+objective (`core.trainer.register_phase`). The Trainer owns the loop,
+logging, evaluation, and checkpointing; `--resume` continues from a
+checkpoint file or a previous run directory (latest checkpoint used).
 
 Every run is written to a dedicated folder under `artifacts/` (see
 `core/artifacts.py`):
