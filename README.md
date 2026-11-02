@@ -81,7 +81,25 @@ Once the trainer (T-005) lands, runs are driven by YAML profiles:
 python -m scripts.train --config configs/xxx.yaml
 ```
 
-Every run is written to a dedicated folder under `artifacts/`.
+Every run is written to a dedicated folder under `artifacts/` (see
+`core/artifacts.py`):
+
+```
+artifacts/
+├── runs.jsonl                              # index of all runs
+└── 20261102-224000_<run_name>/
+    ├── config.yaml      # snapshot of the resolved config
+    ├── run.log          # run log (also mirrored to the console)
+    ├── run_meta.json    # status, start/end times
+    ├── checkpoints/     # step_000123.pt, final.pt
+    └── plots/           # PNG figures
+```
+
+A demo run that exercises the artifact manager end to end:
+
+```bash
+python -m scripts.demo_run --config configs/tiny_debug.yaml
+```
 
 ## License
 
