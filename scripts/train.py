@@ -25,13 +25,8 @@ import torch
 
 from core.artifacts import ArtifactError, create_run
 from core.config import ConfigError, add_config_arg, load_config
-from core.trainer import (
-    Trainer,
-    TrainerError,
-    build_phase,
-    resolve_device,
-    seed_everything,
-)
+from core.device import DeviceError, describe_device, get_device_info
+from core.trainer import Trainer, TrainerError, build_phase, seed_everything
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -66,14 +61,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    device = resolve_device(cfg)
+    # Device manager (T-006): resolve device/precision and log them clearly.
+    try:
+        info = get_device_info(cfg)
+    except DeviceError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        run.mark_finished("failed")
+        return 1
+    run.log(f"startup: {describe_device(info)}")
     run.log(
-        f"phase={cfg['phase']} profile={cfg['profile']} device={device} "
+        f"phase={cfg['phase']} profile={cfg['profile']} device={info.device} "
         f"amp={cfg['amp']} seed={cfg['seed']}"
     )
 
     trainer = Trainer.from_bundle(
-        bundle, config=cfg, run=run, device=device, amp=cfg["amp"]
+        bundle, config=cfg, run=run, device=info.device, amp=cfg["amp"]
     )
 
     if args.resume:

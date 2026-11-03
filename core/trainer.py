@@ -45,6 +45,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 
 from core.artifacts import RunArtifacts
 from core.config import PHASES, validate_config
+from core.device import detect_backend, resolve_device, resolve_precision
 
 __all__ = [
     "TrainerError",
@@ -73,18 +74,6 @@ def seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-
-
-def resolve_device(cfg: dict) -> torch.device:
-    """Resolve the config's ``device`` setting (``auto``/``cpu``/``cuda``).
-
-    ``auto`` picks CUDA when available (ROCm shows up as CUDA in torch)
-    and falls back to CPU otherwise.
-    """
-    device = cfg.get("device", "auto")
-    if device == "auto":
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    return torch.device(device)
 
 
 def split_dataset(
@@ -233,6 +222,8 @@ class Trainer:
         self.run = run
         self.device = device if device is not None else resolve_device(self.config)
         self.amp = bool(self.config["amp"]) if amp is None else bool(amp)
+        backend = detect_backend() if self.device.type == "cuda" else "cpu"
+        self.precision, self._amp_dtype = resolve_precision(backend, self.amp)
         self.model = model.to(self.device)
         self.optimizer = optimizer
         self.loss_fn = loss_fn
@@ -255,8 +246,14 @@ class Trainer:
         self._epoch = 0  # completed epochs
         self.best_val: float | None = None
         self._stop = False
+        # GradScaler is only needed for fp16 autocast (NVIDIA CUDA); bf16
+        # (ROCm/CPU) has fp32's exponent range and scales without one.
         self._scaler = (
-            torch.amp.GradScaler("cuda") if self.amp and self.device.type == "cuda" else None
+            torch.amp.GradScaler("cuda", dtype=torch.float16)
+            if self.amp
+            and self.device.type == "cuda"
+            and self._amp_dtype == torch.float16
+            else None
         )
         self._fallback_logger = logging.getLogger("llm_from_scratch.trainer")
         if not self._fallback_logger.handlers:
@@ -326,12 +323,10 @@ class Trainer:
         if not self.amp:
             yield
             return
-        if self.device.type == "cuda":
-            with torch.amp.autocast(device_type="cuda"):
-                yield
-        else:
-            with torch.amp.autocast(device_type="cpu", dtype=torch.bfloat16):
-                yield
+        # dtype resolved by the device manager (T-006): bf16 on ROCm/CPU,
+        # fp16 on NVIDIA CUDA.
+        with torch.amp.autocast(device_type=self.device.type, dtype=self._amp_dtype):
+            yield
 
     def _forward(
         self, model: nn.Module, batch: dict
@@ -487,7 +482,8 @@ class Trainer:
 
         self._log(
             f"training started: phase={cfg.get('phase') or '?'} "
-            f"profile={cfg['profile']} device={self.device} amp={self.amp} "
+            f"profile={cfg['profile']} device={self.device} "
+            f"precision={self.precision} amp={self.amp} "
             f"seed={cfg['seed']} epochs={epochs} batch_size={cfg['batch_size']} "
             f"lr={cfg['learning_rate']}"
             + (f" max_steps={max_steps}" if max_steps is not None else "")

@@ -24,6 +24,7 @@ import torch
 
 from core.artifacts import ArtifactError, create_run
 from core.config import ConfigError, add_config_arg, load_config
+from core.device import DeviceError, describe_device, get_device_info
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -45,9 +46,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    try:
+        info = get_device_info(cfg)
+    except DeviceError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        run.mark_finished("failed")
+        return 1
+    run.log(f"startup: {describe_device(info)}")
     run.log(
         f"demo run '{cfg['run_name']}' started "
-        f"(profile={cfg['profile']}, device={cfg['device']}, amp={cfg['amp']}, seed={cfg['seed']})"
+        f"(profile={cfg['profile']}, device={info.device}, amp={cfg['amp']}, seed={cfg['seed']})"
     )
 
     # Checkpoint: a tiny state dict (the real trainer saves model weights).
