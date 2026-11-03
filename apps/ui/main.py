@@ -7,6 +7,7 @@ Start the app with:
 Routes
 ------
 ``/``            home / dashboard (M0)
+``/jobs``        M0 -- job runner: start/stop/status/log stream (T-008)
 ``/xor``         M1 -- XOR learning module
 ``/tokenizer``   M2 -- tokenizer module
 ``/embeddings``  M3 -- embeddings module
@@ -22,11 +23,16 @@ later tickets (T-104, T-205, T-305, T-406, T-604).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from nicegui import ui
 from nicegui.binding import bind
 
+from apps.ui.jobs import IDLE, RUNNING, STARTING, JobError, job_runner
+from core.config import ConfigError
 from core.device import DeviceError, describe_device, get_device_info
+from core.trainer import TrainerError
 
 __all__ = ["Phase", "PHASE_PAGES", "register_pages", "run_app"]
 
@@ -192,6 +198,9 @@ def _shell(active_route: str) -> ui.column:
         ui.link("Home", target="/").classes(
             "q-mx-md q-my-xs" + (" q-text-bold" if active_route == "/" else "")
         )
+        ui.link("Jobs", target="/jobs").classes(
+            "q-mx-md q-my-xs" + (" q-text-bold" if active_route == "/jobs" else "")
+        )
         for phase in PHASE_PAGES:
             ui.link(phase.title, target=phase.route).classes(
                 "q-mx-md q-my-xs"
@@ -250,6 +259,100 @@ def _home_page() -> None:
                 _phase_card(phase)
 
 
+def _config_options() -> list[str]:
+    """YAML config files in ``configs/`` (relative paths, sorted)."""
+    configs_dir = Path(__file__).resolve().parents[2] / "configs"
+    return sorted(str(path) for path in configs_dir.glob("*.yaml"))
+
+
+def _format_status(status: dict[str, Any]) -> str:
+    """One-line status text for the jobs page."""
+    parts = [status["state"]]
+    if status["phase"]:
+        parts.append(f"phase={status['phase']}")
+    if status["step"] is not None:
+        parts.append(f"step={status['step']}")
+    if status["epoch"] is not None:
+        parts.append(f"epoch={status['epoch']}")
+    if status["elapsed_s"] is not None:
+        parts.append(f"elapsed={status['elapsed_s']:.1f}s")
+    if status["error"]:
+        parts.append(f"error: {status['error']}")
+    return " | ".join(parts)
+
+
+def _jobs_page() -> None:
+    """Jobs page: start/stop/status/log stream for training jobs (T-008).
+
+    The job runs in a background thread (see ``apps.ui.jobs``); a timer
+    polls the runner and updates the status label, the Start/Stop button
+    states, and the ``ui.log`` element with streamed run-log lines.
+    """
+    with _shell("/jobs"):
+        ui.label("Jobs").classes("text-h5")
+        ui.label(
+            "Start, stop, and monitor training jobs. Each job runs the "
+            "shared Trainer (T-005) in a background thread and writes to "
+            "its own artifact folder (T-004)."
+        ).classes("q-my-sm")
+        ui.separator()
+
+        options = _config_options()
+        config_select = ui.select(
+            options=options,
+            value=options[0] if options else None,
+            label="Config file",
+        ).classes("w-80")
+
+        status_label = ui.label("idle").classes("text-subtitle1").mark("job-status")
+        run_dir_label = ui.label("").classes("text-caption").mark("job-run-dir")
+
+        with ui.row().classes("items-center"):
+            start_btn = (
+                ui.button("Start", icon="play_arrow")
+                .props("color=positive")
+                .mark("job-start")
+            )
+            stop_btn = (
+                ui.button("Stop", icon="stop").props("color=negative").mark("job-stop")
+            )
+
+        log_box = ui.log(max_lines=500).classes("w-full h-96").mark("job-log")
+
+        def start_clicked() -> None:
+            config_path = config_select.value
+            if not config_path:
+                ui.notify("no config file selected", type="negative")
+                return
+            try:
+                job_runner.start(config_path)
+            except (JobError, ConfigError, TrainerError) as exc:
+                ui.notify(str(exc), type="negative")
+
+        def stop_clicked() -> None:
+            try:
+                job_runner.stop()
+            except JobError as exc:
+                ui.notify(str(exc), type="negative")
+
+        start_btn.on_click(start_clicked)
+        stop_btn.on_click(stop_clicked)
+
+        def refresh() -> None:
+            status = job_runner.status()
+            status_label.text = _format_status(status)
+            run_dir_label.text = (
+                f"run: {status['run_dir']}" if status["run_dir"] else ""
+            )
+            start_btn.set_enabled(status["state"] == IDLE)
+            stop_btn.set_enabled(status["state"] in (STARTING, RUNNING))
+            for line in job_runner.drain_logs():
+                log_box.push(line)
+
+        ui.timer(0.5, refresh)
+        refresh()
+
+
 def _phase_page(phase: Phase) -> None:
     """Phase shell page: overview, status badge, ticket list."""
     with _shell(phase.route):
@@ -279,6 +382,10 @@ def register_pages() -> None:
     @ui.page("/", title="Home – llm-from-scratch")
     def home_page() -> None:
         _home_page()
+
+    @ui.page("/jobs", title="Jobs – llm-from-scratch")
+    def jobs_page() -> None:
+        _jobs_page()
 
     for phase in PHASE_PAGES:
         @ui.page(phase.route, title=f"{phase.title} – llm-from-scratch")
