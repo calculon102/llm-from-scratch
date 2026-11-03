@@ -108,6 +108,32 @@ A demo run that exercises the artifact manager end to end:
 python -m scripts.demo_run --config configs/tiny_debug.yaml
 ```
 
+## Web UI
+
+The NiceGUI app shell (T-007) is dark by default and responsive (the left
+drawer collapses to an off-canvas overlay on mobile, opened via the menu
+button). It has one route per pipeline phase:
+
+```
+/            home / dashboard (M0)
+/xor         M1 – XOR learning module
+/tokenizer   M2 – tokenizer module
+/embeddings  M3 – embeddings module
+/gpt         M4 – mini GPT module
+/scaling     M5 – scaling on the 7900 XTX
+/capstone    M6 – capstone & docs
+```
+
+Start it with:
+
+```bash
+python -m scripts.ui [--host 127.0.0.1] [--port 8080] [--reload]
+```
+
+The phase pages are shells for now (phase overview + ticket list); the
+phase-specific UI lands in the later tickets (T-104, T-205, T-305, T-406,
+T-604).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

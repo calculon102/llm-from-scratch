@@ -48,3 +48,5 @@ include = ["core", "core.*", "apps", "apps.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# NiceGUI user-simulation main file (see conftest.py / tests/test_ui.py).
+main_file = "apps/ui/main.py"
