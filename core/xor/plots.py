@@ -21,6 +21,14 @@ Three figures, each answering a question the loss number alone cannot:
 optional dependency (the ``viz`` extra); when it is missing, a warning is
 logged and no plots are written, so training never fails because of
 plotting.
+
+Every figure here is file-only -- it is saved to a PNG, never shown in a
+window -- and it may be built from the web UI's background job thread
+(the ``on_end`` plot hooks in ``apps.ui.jobs``).  A GUI backend such as
+TkAgg started outside the main thread destabilizes the Tcl interpreter
+and kills the process (SIGILL), so the backend is pinned to the
+non-interactive ``Agg`` before the first figure is created
+(:func:`_use_headless_backend`).
 """
 
 from __future__ import annotations
@@ -42,6 +50,30 @@ __all__ = [
     "loss_curve_fig",
     "save_loss_curve",
 ]
+
+
+def _use_headless_backend() -> None:
+    """Pin matplotlib to the non-interactive Agg backend before building a figure.
+
+    This module only ever saves figures to PNG files, none of them is shown
+    in a window.  On a machine with a GUI, matplotlib's default backend is
+    an interactive one (typically TkAgg).  Starting that backend from a
+    thread other than the main one is undefined behaviour -- the web UI's
+    training jobs run in a background thread, and the first Tk figure built
+    there destabilizes the Tcl interpreter ("Tcl_AsyncDelete: async handler
+    deleted by the wrong thread") and on Linux kills the whole process with
+    SIGILL ("illegal hardware instruction").  Agg renders the identical PNGs
+    and is safe from any thread, so a GUI backend is switched to Agg before
+    the first figure is created.  This is a no-op when a non-interactive
+    backend is already active (e.g. the test suite's ``conftest.py`` or a
+    headless script that already called :func:`matplotlib.use`).
+    """
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    backend = plt.get_backend().lower()
+    if backend != "agg" and not backend.startswith("module://"):
+        matplotlib.use("Agg")
 
 
 def _probability_grid(
@@ -70,6 +102,7 @@ def decision_boundary_fig(
     """Figure: P(y=1) heatmap + the P=0.5 decision contour + the 4 points."""
     import matplotlib.pyplot as plt
 
+    _use_headless_backend()
     g1, g2, probs = _probability_grid(model, grid_size, x_range)
     fig, ax = plt.subplots(figsize=(6, 5))
     cf = ax.contourf(
@@ -100,6 +133,7 @@ def activations_fig(
     """Figure: one panel per hidden unit, its activation over the input plane."""
     import matplotlib.pyplot as plt
 
+    _use_headless_backend()
     model.eval()
     with torch.no_grad():
         x1 = torch.linspace(x_range[0], x_range[1], grid_size)
@@ -192,6 +226,7 @@ def loss_curve_fig(history: list[dict]) -> "object":
     """
     import matplotlib.pyplot as plt
 
+    _use_headless_backend()
     # Training curve: one point per logged step, keyed by the global
     # step counter (so the x-axis is comparable across runs with
     # different epochs/batch sizes).
