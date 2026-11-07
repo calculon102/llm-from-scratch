@@ -23,6 +23,7 @@ import sys
 
 import torch
 
+import core.xor  # noqa: F401  # registers the "xor" phase (T-101)
 from core.artifacts import ArtifactError, create_run
 from core.config import ConfigError, add_config_arg, load_config
 from core.device import DeviceError, describe_device, get_device_info

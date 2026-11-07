@@ -29,6 +29,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import core.xor  # noqa: F401  # registers the "xor" phase (T-101)
 from core.artifacts import RunArtifacts, create_run
 from core.config import load_config
 from core.device import describe_device, get_device_info

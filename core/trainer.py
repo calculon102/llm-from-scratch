@@ -120,6 +120,12 @@ class PhaseBundle:
     optimizer_factory:
         Optional ``optimizer_factory(model) -> Optimizer``; defaults to
         AdamW with the config's ``learning_rate``.
+    callbacks:
+        Optional Trainer callbacks (``on_start``, ``on_step``,
+        ``on_epoch_end``, ``on_end``) attached by the phase itself, e.g.
+        XOR (T-102) saves its plots in ``on_end``.  Merged with the
+        callbacks passed to :meth:`Trainer.from_bundle` (caller wins on
+        hook-name conflicts).
     """
 
     model: nn.Module
@@ -128,6 +134,7 @@ class PhaseBundle:
     loss_fn: Callable[[nn.Module, dict], tuple[torch.Tensor, dict[str, float]]] | None = None
     metric_fn: Callable[[nn.Module, DataLoader], dict[str, float]] | None = None
     optimizer_factory: Callable[[nn.Module], torch.optim.Optimizer] | None = None
+    callbacks: dict[str, Callable] | None = None
 
 
 _PHASE_FACTORIES: dict[str, Callable[[dict], PhaseBundle]] = {}
@@ -284,6 +291,9 @@ class Trainer:
             if bundle.optimizer_factory is not None
             else torch.optim.AdamW(bundle.model.parameters(), lr=cfg["learning_rate"])
         )
+        # Phase-attached callbacks first; caller-supplied ones win on
+        # hook-name conflicts.
+        merged = {**(bundle.callbacks or {}), **(callbacks or {})}
         return cls(
             bundle.model,
             optimizer,
@@ -295,7 +305,7 @@ class Trainer:
             amp=amp,
             loss_fn=bundle.loss_fn,
             metric_fn=bundle.metric_fn,
-            callbacks=callbacks,
+            callbacks=merged,
             grad_clip=grad_clip,
         )
 

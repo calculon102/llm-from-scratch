@@ -13,6 +13,7 @@ import argparse
 import json
 import sys
 
+import core.xor  # noqa: F401  # registers the "xor" phase schema (T-101)
 from core.config import ConfigError, add_config_arg, load_config
 
 

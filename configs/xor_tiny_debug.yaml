@@ -1,0 +1,22 @@
+# M1 XOR phase — tiny_debug profile (fastest in the ladder:
+# tiny_debug -> tiny_train -> small -> medium -> max_7900xtx).
+# 400 samples, batch 32, 50 epochs: should run in a few seconds on CPU.
+run_name: xor_tiny_debug
+phase: xor
+seed: 42
+device: auto
+amp: false
+profile: tiny_debug
+output_dir: artifacts
+log_interval: 10
+batch_size: 32
+learning_rate: 0.05
+epochs: 50
+val_split: 0.25
+save_interval: 25
+# XOR-specific settings (validated by core.xor.validate_xor_phase_config).
+phase_config:
+  hidden_size: 8
+  activation: tanh
+  repeats: 100
+  noise_std: 0.0
