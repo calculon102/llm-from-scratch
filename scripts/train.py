@@ -87,6 +87,11 @@ def main(argv: list[str] | None = None) -> int:
             run.mark_finished("failed")
             return 1
 
+    # Optional finite-difference gradient check (T-103), before any
+    # training step so the report reflects the model's initial gradients.
+    if cfg["gradcheck"]:
+        trainer.check_gradients()
+
     try:
         trainer.train()
     except KeyboardInterrupt:

@@ -55,8 +55,30 @@ def xor_loss(
 ) -> tuple[torch.Tensor, dict[str, float]]:
     """Binary cross-entropy on the logits, plus a training accuracy metric.
 
+    The loss is the per-example "surprise" of the true label, averaged
+    over the batch.  If ``p`` is the probability the network assigns to
+    the true label (``sigmoid(logit)`` for y=1, ``1 - sigmoid(logit)``
+    for y=0), the loss is::
+
+        L = -log(p)
+
+    so a model that is certain and *right* pays ~0, one that is certain
+    and *wrong* pays a huge penalty, and one that is unsure (p = 0.5)
+    pays a moderate, constant amount.  That asymmetry — being wrong
+    costs far more than being unsure — is what pushes the network from
+    "guessing 50/50" to confident, correct predictions; minimizing the
+    average surprise over the data *is* "fitting the model".
+
     ``model(batch["x"])`` yields logits ``(B, 1)``; ``batch["y"]`` is the
-    0/1 label ``(B, 1)``.  Accuracy is computed under ``no_grad`` and
+    0/1 label ``(B, 1)``.  We use ``BCEWithLogitsLoss`` (the
+    ``_with_logits`` variant) rather than a separate sigmoid + loss: it
+    fuses the two into one numerically stable operation (the plain form
+    can overflow/underflow for large |logit|, and the fused form's
+    backward pass is slightly more accurate).
+
+    The accuracy metric (fraction of examples answered correctly) is
+    computed under ``torch.no_grad`` so it does not build a computation
+    graph — it is only for logging, never for the gradient — and is
     reported as a float so the Trainer can log and epoch-average it.
     """
     logits = model(batch["x"])

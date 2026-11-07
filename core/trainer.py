@@ -20,6 +20,37 @@ where ``metrics`` maps names to floats; if ``loss_fn`` is ``None`` the
 model's forward output is used directly (a bare loss tensor, or a
 ``(loss, metrics)`` tuple).
 
+The training cycle, step by step
+--------------------------------
+
+For each *batch* (a small sample of the dataset, e.g. 32 examples) the
+Trainer does four things — this is the whole of "training", for XOR and
+for GPT alike::
+
+    1. forward pass    evaluate the model on the batch at its current
+                       weights; compute the LOSS: one number measuring how
+                       wrong the predictions are (lower = better; a
+                       perfectly fitting model has loss ~ 0).
+    2. backward pass   loss.backward() asks autograd for the GRADIENT:
+                       for every trainable weight, how much the loss would
+                       change if that weight were nudged.  (You can verify
+                       these numbers any time with the finite-difference
+                       gradient check, T-103: Trainer.check_gradients.)
+    3. optimizer step  move every weight a little bit opposite to its
+                       gradient,  W -= lr * grad  (AdamW additionally
+                       adapts the step size per weight over time).  The
+                       learning rate lr controls how far each step goes:
+                       too large overshoots the minimum, too small crawls.
+    4. repeat          over many steps the weights drift downhill through
+                       the loss landscape.  An EPOCH is one full pass over
+                       the training data; the validation set — which is
+                       never used for weight updates — tells us whether the
+                       model is actually improving or just memorizing.
+
+After enough steps on a small task like XOR, the loss reaches ~ 0: the
+weights have settled in a region where the network answers correctly on
+all training points.
+
 Every run goes through the artifact manager (T-004): checkpoints are
 written to ``checkpoints/`` as ``step_*.pt`` (every ``save_interval``
 steps) plus a ``final.pt`` at the end.  A checkpoint stores model weights,
@@ -46,6 +77,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from core.artifacts import RunArtifacts
 from core.config import PHASES, validate_config
 from core.device import detect_backend, resolve_device, resolve_precision
+from core.gradcheck import DEFAULT_EPS, DEFAULT_RTOL, GradientCheckReport, format_report, gradient_check
 
 __all__ = [
     "TrainerError",
@@ -352,22 +384,26 @@ class Trainer:
         return loss, metrics
 
     def _train_step(self, batch: dict) -> tuple[torch.Tensor, dict[str, float]]:
-        self.model.train()
-        self.optimizer.zero_grad()
+        # One training step = the cycle in the module docstring:
+        # forward + loss, backward, optimizer update.
+        self.model.train()  # training mode: enables dropout/BatchNorm semantics
+        self.optimizer.zero_grad()  # grads accumulate — clear last step's first
         with self._autocast():
-            loss, metrics = self._forward(self.model, batch)
+            loss, metrics = self._forward(self.model, batch)  # 1. forward pass + loss
         if self._scaler is not None:
-            self._scaler.scale(loss).backward()
+            self._scaler.scale(loss).backward()  # 2. backprop (scaled, fp16 path)
             if self.grad_clip > 0:
                 self._scaler.unscale_(self.optimizer)
                 nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
             self._scaler.step(self.optimizer)
             self._scaler.update()
         else:
-            loss.backward()
+            loss.backward()  # 2. backprop: fills param.grad for every weight
             if self.grad_clip > 0:
+                # Safety net: cap the total gradient norm so one pathological
+                # batch cannot send the weights flying (matters for noisy data).
                 nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
-            self.optimizer.step()
+            self.optimizer.step()  # 3. W -= lr * grad (AdamW: adaptive per weight)
         return loss.detach(), metrics
 
     # ------------------------------------------------------------------
@@ -405,6 +441,51 @@ class Trainer:
         for name, value in acc.items():
             result[name] = value / max(n_total, 1)
         return result
+
+    # ------------------------------------------------------------------
+    # Gradient check (T-103)
+    # ------------------------------------------------------------------
+
+    def check_gradients(
+        self, eps: float = DEFAULT_EPS, rtol: float = DEFAULT_RTOL
+    ) -> GradientCheckReport:
+        """Verify the model's gradients against finite differences (T-103).
+
+        Compares the analytic gradients from ``loss.backward()`` (what the
+        optimizer actually uses) with central finite-difference estimates of
+        the same derivatives on one training batch, and builds a per-
+        parameter mismatch report — see :mod:`core.gradcheck` for the math
+        and for how to read a FAIL.
+
+        The check runs on a deep-copied CPU float32 copy of the model, so
+        the real model (device, dtype, weights) is untouched.  When the Trainer
+        has a run attached, the report is written to
+        ``<run_dir>/gradcheck_report.txt`` and the verdict is logged
+        (WARNING on FAIL — this is a diagnostic, not a gate: training
+        continues, so you can still see what wrong gradients do to learning).
+
+        Returns the :class:`~core.gradcheck.GradientCheckReport`.
+        """
+        batch = next(iter(self.train_loader))
+        report = gradient_check(self.model, self.loss_fn, batch, eps=eps, rtol=rtol)
+        if self.run is not None:
+            report_path = self.run.run_dir / "gradcheck_report.txt"
+            report_path.write_text(format_report(report, model_name=type(self.model).__name__))
+            self._log(f"gradient check report written to {report_path.name}")
+        status = "PASS" if report.passed else "FAIL"
+        level = logging.INFO if report.passed else logging.WARNING
+        self._log(
+            f"gradient check: {status} (params={report.num_params}, "
+            f"elements={report.total_elements}, "
+            f"max_rel_err={report.max_rel_err:.3e}, eps={report.eps:g}, rtol={report.rtol:g})"
+        )
+        if not report.passed:
+            self._log(
+                f"gradient check: worst parameter is {report.worst_param!r} — "
+                "inspect the backward path that flows through it",
+                level=level,
+            )
+        return report
 
     # ------------------------------------------------------------------
     # Checkpoint / resume

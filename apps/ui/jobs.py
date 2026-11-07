@@ -261,6 +261,10 @@ class JobRunner:
                 run.mark_finished("interrupted")
                 self._finish(STOPPED)
                 return
+            # Optional finite-difference gradient check (T-103), before any
+            # training step (see scripts/train.py).
+            if cfg["gradcheck"]:
+                trainer.check_gradients()
             trainer.train()
             stopped = self._cancel.is_set()
             run.mark_finished("interrupted" if stopped else "finished")

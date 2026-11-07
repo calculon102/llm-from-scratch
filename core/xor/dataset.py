@@ -59,11 +59,22 @@ class XORDataset(Dataset):
         if noise_std < 0:
             raise ValueError(f"noise_std must be >= 0, got {noise_std}")
         # Interleave the four points so the dataset cycles through them
-        # (rather than in blocks): row i uses point i % 4.
+        # (rather than in blocks): row i uses point i % 4.  Why repeat at
+        # all?  The Trainer works in *batches* (default 32 here) and splits
+        # the data into train/val: with only 4 samples there would be one
+        # batch and no meaningful validation set.  Repeating each point
+        # ``repeats`` times (default 100 → 400 samples) gives the batch
+        # sampler, the epoch counter, and the train/val split something to
+        # chew on, while the task stays exactly "learn XOR".
         points = [XOR_POINTS[i % len(XOR_POINTS)] for i in range(4 * repeats)]
         self._x = torch.tensor([p[:2] for p in points], dtype=torch.float32)
         self._y = torch.tensor([[p[2]] for p in points], dtype=torch.float32)
         if noise_std > 0:
+            # Nudging the inputs off the exact grid corners forces the
+            # network to learn a *margin* around each point instead of
+            # memorizing four precise locations — the same reason real
+            # (noisy) corpora make models generalize.  Too much noise and
+            # the classes blur into each other, so keep it small.
             gen = torch.Generator().manual_seed(seed)
             self._x = self._x + noise_std * torch.randn(self._x.shape, generator=gen)
 

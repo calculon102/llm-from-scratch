@@ -72,6 +72,11 @@ _BASE_SCHEMA: dict[str, dict[str, Any]] = {
     "seed": {"type": "int", "default": 42},
     "device": {"type": "str", "default": "auto", "choices": ("auto", "cpu", "cuda")},
     "amp": {"type": "bool", "default": False},
+    # Finite-difference gradient check before training (T-103): verifies
+    # the model's backpropagation on one batch and writes a
+    # gradcheck_report.txt into the run folder.  Diagnostic, not a gate:
+    # a FAIL is logged as a warning, training still runs.
+    "gradcheck": {"type": "bool", "default": False},
     "profile": {"type": "str", "default": "tiny_debug", "choices": SCALE_PROFILES},
     "output_dir": {"type": "str", "default": "artifacts"},
     "log_interval": {"type": "int", "default": 10, "min": 1},

@@ -14,6 +14,13 @@ learning_rate: 0.05
 epochs: 50
 val_split: 0.25
 save_interval: 25
+# Finite-difference gradient check (T-103): before training starts, verify
+# every weight's backpropagated gradient against the plain definition of a
+# derivative (weight nudged by +eps/-eps, network re-run, slope taken).
+# Writes gradcheck_report.txt into the run folder. Costs 2 forward passes
+# per weight element — milliseconds for this tiny profile, so on by
+# default here; set to false on larger profiles.
+gradcheck: true
 # XOR-specific settings (validated by core.xor.validate_xor_phase_config).
 phase_config:
   hidden_size: 8
