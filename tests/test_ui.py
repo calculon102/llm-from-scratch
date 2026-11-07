@@ -52,8 +52,14 @@ async def test_route_reachable(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("phase", PHASE_PAGES, ids=[p.route for p in PHASE_PAGES])
+@pytest.mark.parametrize(
+    "phase",
+    [p for p in PHASE_PAGES if p.route != "/xor"],
+    ids=[p.route for p in PHASE_PAGES if p.route != "/xor"],
+)
 async def test_phase_page_lists_tickets(user: User, anyio_backend: str, phase) -> None:
+    # /xor (T-104) is a dedicated page without a ticket table, so it is not
+    # part of this parametrize (see tests/test_xor_page.py for its tests).
     await user.open(phase.route)
     # Quasar renders table rows client-side, so check the row data on the
     # Python-side table element instead of looking for row text.

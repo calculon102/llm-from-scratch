@@ -610,6 +610,11 @@ class Trainer:
                 if save_interval and step % save_interval == 0:
                     self.save_checkpoint(step)
             self._epoch += 1
+            # T-104: keep the per-epoch metrics so the on_epoch_end
+            # callbacks can record epoch-level loss curves (the UI's
+            # training history).  With no validation split this is an
+            # empty dict; with one it holds e.g. {"val_loss", "val_acc"}.
+            val: dict[str, float] = {}
             if self.val_loader is not None:
                 val = self.evaluate()
                 vloss = val.get("val_loss")
@@ -621,7 +626,7 @@ class Trainer:
                 )
             else:
                 self._log(f"epoch {self._epoch}/{epochs} done")
-            self._fire("on_epoch_end", epoch=self._epoch, step=step)
+            self._fire("on_epoch_end", epoch=self._epoch, step=step, val=val)
             if max_steps is not None and step >= max_steps:
                 break
 

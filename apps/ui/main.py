@@ -8,16 +8,17 @@ Routes
 ------
 ``/``            home / dashboard (M0)
 ``/jobs``        M0 -- job runner: start/stop/status/log stream (T-008)
-``/xor``         M1 -- XOR learning module
+``/xor``         M1 -- XOR learning page: controls, train/stop, live loss
+                 curve and final plots (T-104; see ``apps/ui/xor_page.py``)
 ``/tokenizer``   M2 -- tokenizer module
 ``/embeddings``  M3 -- embeddings module
 ``/gpt``         M4 -- mini GPT module
 ``/scaling``     M5 -- scaling on the 7900 XTX
 ``/capstone``    M6 -- capstone & docs
 
-The phase pages are shells for now: they show the phase overview and its
-ticket list.  Phase-specific UI (controls, plots, generation) lands in the
-later tickets (T-104, T-205, T-305, T-406, T-604).
+The XOR page is a real page (T-104); the remaining phase pages are shells
+for now: they show the phase overview and its ticket list.  Phase-specific
+UI lands in the later tickets (T-205, T-305, T-406, T-604).
 """
 
 from __future__ import annotations
@@ -61,7 +62,8 @@ PHASE_PAGES: tuple[Phase, ...] = (
             "First end-to-end training loop: a 2-layer MLP learns XOR, "
             "with loss curves, decision boundary and activation plots."
         ),
-        ui_ticket="T-104",
+        # T-104 done: /xor is a real page (xor_page.py), not a shell.
+        ui_ticket=None,
         tickets=(
             ("T-101", "Implement XOR dataset + 2-layer MLP baseline", "P0"),
             ("T-102", "Add XOR decision boundary and activation plots", "P0"),
@@ -388,9 +390,23 @@ def register_pages() -> None:
         _jobs_page()
 
     for phase in PHASE_PAGES:
+        if phase.route == "/xor":
+            # /xor is a dedicated page (T-104) defined in xor_page.py; its
+            # route is registered when that module is imported below.
+            continue
         @ui.page(phase.route, title=f"{phase.title} – llm-from-scratch")
         def phase_page(_phase: Phase = phase) -> None:
             _phase_page(_phase)
+
+    # The XOR page is a real page (T-104) with its own route.  Importing
+    # alone is not enough to register the route in the headless UI tests:
+    # they reset the global app state per test and re-execute this very
+    # function, while the imported module is cached and would not run its
+    # decorators a second time -- so the registration happens here (see
+    # ``xor_page.register_xor_page``).
+    from apps.ui import xor_page
+
+    xor_page.register_xor_page()
 
 
 def run_app(

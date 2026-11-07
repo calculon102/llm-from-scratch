@@ -128,6 +128,7 @@ def test_phase_config_validated_by_registered_schema():
             errors.append("phase_config: 'hidden_units' is required for phase 'xor'")
         return errors
 
+    previous = config._PHASE_SCHEMAS.get("xor")
     config.register_phase_schema("xor", xor_validator)
     try:
         with pytest.raises(ConfigError, match="'hidden_units' is required"):
@@ -135,8 +136,15 @@ def test_phase_config_validated_by_registered_schema():
         cfg = validate_config({"phase": "xor", "phase_config": {"hidden_units": 8}})
         assert cfg["phase_config"] == {"hidden_units": 8}
     finally:
-        # Don't leak the mock schema into other tests' processes.
-        config._PHASE_SCHEMAS.pop("xor", None)
+        # Restore the previously registered validator instead of dropping
+        # it: the phase-schema registry is global, and test modules that
+        # import core.xor have registered the real XOR schema by the time
+        # the tests run.  Popping it here would silently disable that
+        # validation for every test that runs afterwards.
+        if previous is None:
+            config._PHASE_SCHEMAS.pop("xor", None)
+        else:
+            config._PHASE_SCHEMAS["xor"] = previous
 
 
 def test_register_unknown_phase_rejected():
