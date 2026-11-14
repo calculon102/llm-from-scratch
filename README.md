@@ -19,9 +19,10 @@ MVP = M0 + M1 + M2 + core M4. See [docs/roadmap.md](docs/roadmap.md) for details
 ## Project layout
 
 ```
-core/          shared library (config, trainer, device, artifacts, ...)
+core/          shared library (config, trainer, device, artifacts, tokenizer, ...)
 apps/ui/       NiceGUI web app (dark, responsive)
 configs/       YAML config profiles (tiny_debug → max_7900xtx)
+data/          bundled sample corpora (German-first, offline)
 scripts/       CLI entrypoints
 artifacts/     per-run outputs (config snapshot, logs, checkpoints, plots)
 docs/math/     per-phase math notes
@@ -108,6 +109,25 @@ A demo run that exercises the artifact manager end to end:
 python -m scripts.demo_run --config configs/tiny_debug.yaml
 ```
 
+### Tokenizer (M2)
+
+Ingest a noisy German-first corpus, train a character tokenizer and a BPE
+tokenizer from scratch, persist `vocab.json`/`merges.json`, and log
+compression/OOV metrics:
+
+```bash
+python -m scripts.tokenizer --config configs/tokenizer_tiny_debug.yaml
+python -m scripts.tokenizer --config configs/tokenizer_tiny_debug.yaml \
+    --input data/sample_de --vocab-size 800
+```
+
+The run folder gets `corpus/cleaned.txt`, `corpus/report.json`,
+`tokenizers/{char,bpe}/`, and `metrics.json`. The bundled
+`data/sample_de/` files are original CC0 German text with deliberate
+noise (mixed encodings, BOM, CRLF, duplicates); see `data/README.md`.
+The math and trade-offs are written up in
+[docs/math/phase2_tokenizer.md](docs/math/phase2_tokenizer.md).
+
 ## Web UI
 
 The NiceGUI app shell (T-007) is dark by default and responsive (the left
@@ -116,8 +136,8 @@ button). It has one route per pipeline phase:
 
 ```
 /            home / dashboard (M0)
-/xor         M1 – XOR learning module
-/tokenizer   M2 – tokenizer module
+/xor         M1 – XOR learning module (real page)
+/tokenizer   M2 – character vs. BPE compare page (real page)
 /embeddings  M3 – embeddings module
 /gpt         M4 – mini GPT module
 /scaling     M5 – scaling on the 7900 XTX
@@ -130,9 +150,9 @@ Start it with:
 python -m scripts.ui [--host 127.0.0.1] [--port 8080] [--reload]
 ```
 
-The phase pages are shells for now (phase overview + ticket list); the
-phase-specific UI lands in the later tickets (T-104, T-205, T-305, T-406,
-T-604).
+The XOR and tokenizer pages are real; the remaining phase pages are shells
+for now (phase overview + ticket list). Phase-specific UI lands in the
+later tickets (T-305, T-406, T-604).
 
 ## License
 
