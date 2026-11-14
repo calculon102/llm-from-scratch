@@ -130,6 +130,16 @@ class EmbeddingIndex:
         return int(self.vectors.shape[1])
 
     @property
+    def normalized_vectors(self) -> np.ndarray:
+        """Cached L2-normalized copy of the embedding matrix."""
+        return self._normalized
+
+    @property
+    def norms(self) -> np.ndarray:
+        """Row-wise vector lengths (a rough frequency/salience signal)."""
+        return np.linalg.norm(self.vectors, axis=1)
+
+    @property
     def token_to_id(self) -> dict[str, int]:
         return dict(self._token_to_id)
 
