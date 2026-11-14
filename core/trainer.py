@@ -79,6 +79,12 @@ from core.config import PHASES, validate_config
 from core.device import detect_backend, resolve_device, resolve_precision
 from core.gradcheck import DEFAULT_EPS, DEFAULT_RTOL, GradientCheckReport, format_report, gradient_check
 from core.instrumentation import ThroughputMeter, format_memory, memory_stats
+from core.oom import (
+    TrainingOOMError,
+    fallback_suggestions,
+    format_oom_help,
+    is_oom_error,
+)
 
 __all__ = [
     "TrainerError",
@@ -631,12 +637,58 @@ class Trainer:
     # Main loop
     # ------------------------------------------------------------------
 
+    def _save_failure_checkpoint(self) -> Path | None:
+        """Checkpoint before re-raising OOM/interrupt (T-503).
+
+        Uses the last completed step (``step_*.pt``) so a later ``--resume``
+        picks it up; before the first step it writes ``final.pt``.  Returns
+        ``None`` when no run folder is attached.
+        """
+        if self.run is None:
+            return None
+        if self.device.type == "cuda" and torch.cuda.is_available():
+            # Release cached blocks first; the live state dict is still
+            # serialisable because torch.save copies to CPU.
+            torch.cuda.empty_cache()
+        step = self._last_step if self._last_step > 0 else None
+        return self.save_checkpoint(step=step)
+
     def train(self) -> dict:
+        """Run training, auto-saving a checkpoint on OOM or Ctrl+C (T-503).
+
+        Normal completion returns the summary dict described in
+        :meth:`_train_loop`.  An out-of-memory failure is converted to
+        :class:`~core.oom.TrainingOOMError` with actionable fallback hints
+        after saving a checkpoint; a ``KeyboardInterrupt`` (Ctrl+C/SIGTERM)
+        saves a checkpoint and is re-raised so the caller can mark the run
+        as interrupted.
+        """
+        try:
+            return self._train_loop()
+        except KeyboardInterrupt:
+            checkpoint = self._save_failure_checkpoint()
+            where = f"checkpoint saved to {checkpoint}" if checkpoint else "no run folder attached"
+            self._log(
+                f"interrupted at step {self._last_step}; {where}",
+                level=logging.WARNING,
+            )
+            raise
+        except Exception as exc:
+            if not is_oom_error(exc):
+                raise
+            checkpoint = self._save_failure_checkpoint()
+            hints = fallback_suggestions(self.config, checkpoint=checkpoint)
+            message = format_oom_help(exc, self.config, checkpoint=checkpoint)
+            self._log(message, level=logging.ERROR)
+            raise TrainingOOMError(message, hints=hints, checkpoint=checkpoint) from exc
+
+    def _train_loop(self) -> dict:
         """Run the training loop and return a summary dict.
 
         Summary keys: ``steps`` (optimizer steps taken), ``epochs``
         (completed epochs), ``best_val`` (best val loss, or ``None``),
-        ``elapsed_s``.
+        ``elapsed_s``, plus the T-502 throughput fields ``tokens``,
+        ``tokens_per_sec``, ``steps_per_sec`` and ``memory``.
         """
         cfg = self.config
         epochs = cfg["epochs"]

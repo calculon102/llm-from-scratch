@@ -19,6 +19,7 @@ XOR (T-101)::
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 
 import torch
@@ -29,7 +30,13 @@ import core.gpt  # noqa: F401  # registers the "gpt" phase (T-404)
 from core.artifacts import ArtifactError, create_run
 from core.config import ConfigError, add_config_arg, load_config
 from core.device import DeviceError, describe_device, get_device_info
+from core.oom import TrainingOOMError
 from core.trainer import Trainer, TrainerError, build_phase, seed_everything
+
+
+def _sigterm_to_interrupt(signum: int, frame: object) -> None:
+    """Turn SIGTERM into KeyboardInterrupt so the T-503 auto-save runs."""
+    raise KeyboardInterrupt
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -94,13 +101,31 @@ def main(argv: list[str] | None = None) -> int:
     if cfg["gradcheck"]:
         trainer.check_gradients()
 
+    # T-503: a SIGTERM (e.g. from a process manager) saves a checkpoint just
+    # like Ctrl+C.  signal.signal is main-thread-only, hence the guard.
+    previous_sigterm = None
+    try:
+        previous_sigterm = signal.signal(signal.SIGTERM, _sigterm_to_interrupt)
+    except ValueError:  # not the main thread (tests / embedding)
+        previous_sigterm = None
+
     try:
         trainer.train()
+    except TrainingOOMError as exc:
+        # The Trainer already checkpointed and logged the fallback hints.
+        print(f"error: {exc}", file=sys.stderr)
+        run.mark_finished("failed")
+        return 2
     except KeyboardInterrupt:
-        trainer.save_checkpoint()
+        if run.latest_checkpoint() is None:
+            # Interrupted before the first step: still leave a resumable file.
+            trainer.save_checkpoint()
         run.mark_finished("interrupted")
         print(f"interrupted; checkpoint saved in {run.run_dir}", file=sys.stderr)
         return 130
+    finally:
+        if previous_sigterm is not None:
+            signal.signal(signal.SIGTERM, previous_sigterm)
 
     run.mark_finished("finished")
     print(f"run directory: {run.run_dir}")
