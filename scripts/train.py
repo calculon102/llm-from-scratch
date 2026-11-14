@@ -25,6 +25,7 @@ import torch
 
 import core.xor  # noqa: F401  # registers the "xor" phase (T-101)
 import core.embeddings  # noqa: F401  # registers the "embeddings" phase (T-302)
+import core.gpt  # noqa: F401  # registers the "gpt" phase (T-404)
 from core.artifacts import ArtifactError, create_run
 from core.config import ConfigError, add_config_arg, load_config
 from core.device import DeviceError, describe_device, get_device_info

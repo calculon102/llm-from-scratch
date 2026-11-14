@@ -41,6 +41,7 @@ __all__ = [
     "MiniGPT",
     "TransformerBlock",
     "causal_mask",
+    "language_model_loss",
 ]
 
 #: Default architecture for the tiny profiles.  Real runs override these
@@ -427,3 +428,33 @@ class MiniGPT(nn.Module):
             x = block(x)
         x = self.ln_f(x)
         return self.lm_head(x)
+
+
+def language_model_loss(
+    model: MiniGPT, batch: dict[str, torch.Tensor]
+) -> tuple[torch.Tensor, dict[str, float]]:
+    """Trainer adapter: cross-entropy over every next-token prediction.
+
+    The Trainer deliberately keeps batch tensors on CPU so phases stay
+    device-agnostic; the model may live on CUDA/ROCm.  This function moves
+    the ids to the model's device, runs the forward pass, and flattens
+    ``(B, T, V)`` logits against ``(B, T)`` targets so *every* position in
+    the window contributes to the loss.
+
+    The returned metrics are empty: perplexity is an evaluation metric and
+    is computed token-weighted by :func:`core.gpt.pipeline.evaluate_perplexity`
+    (averaging per-step perplexities would be mathematically wrong).
+    """
+    device = next(model.parameters()).device
+    input_ids = batch["input_ids"].to(device=device, dtype=torch.long)
+    targets = batch["targets"].to(device=device, dtype=torch.long)
+    logits = model(input_ids)
+    if logits.shape[:2] != targets.shape:
+        raise ValueError(
+            f"targets shape {tuple(targets.shape)} does not match logits "
+            f"shape {tuple(logits.shape[:2])}"
+        )
+    loss = torch.nn.functional.cross_entropy(
+        logits.reshape(-1, logits.size(-1)), targets.reshape(-1)
+    )
+    return loss, {}

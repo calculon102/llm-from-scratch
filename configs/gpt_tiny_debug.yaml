@@ -1,0 +1,44 @@
+run_name: gpt_tiny_debug
+seed: 42
+device: auto
+amp: false
+gradcheck: false
+profile: tiny_debug
+output_dir: artifacts
+log_interval: 10
+batch_size: 8
+learning_rate: 0.003
+epochs: 100
+max_steps: 400
+val_split: 0.1
+save_interval: 100
+
+phase: gpt
+phase_config:
+  tokenizer_bundle: ""
+  corpus_path: data/sample_de
+  vocab_size: 300
+  min_frequency: 2
+  max_token_length: 16
+  context_length: 16
+  stride: 0
+  n_layer: 2
+  n_head: 2
+  n_embd: 32
+  dropout: 0.0
+  bias: true
+  tie_weights: true
+  init_std: 0.02
+  add_special_tokens: true
+  min_line_chars: 2
+  max_line_chars: 2000
+  min_alpha_ratio: 0.0
+  drop_duplicates: true
+  lowercase: false
+  encodings:
+    - utf-8-sig
+    - utf-8
+    - cp1252
+    - latin-1
+  extensions:
+    - .txt
