@@ -21,6 +21,20 @@ when this package is imported::
 
 from __future__ import annotations
 
-from core.gpt.model import CausalSelfAttention
+from core.gpt.model import (
+    CausalSelfAttention,
+    GPTConfig,
+    MLP,
+    MiniGPT,
+    TransformerBlock,
+    causal_mask,
+)
 
-__all__ = ["CausalSelfAttention"]
+__all__ = [
+    "CausalSelfAttention",
+    "GPTConfig",
+    "MLP",
+    "MiniGPT",
+    "TransformerBlock",
+    "causal_mask",
+]
