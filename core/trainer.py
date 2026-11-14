@@ -78,6 +78,7 @@ from core.artifacts import RunArtifacts
 from core.config import PHASES, validate_config
 from core.device import detect_backend, resolve_device, resolve_precision
 from core.gradcheck import DEFAULT_EPS, DEFAULT_RTOL, GradientCheckReport, format_report, gradient_check
+from core.instrumentation import ThroughputMeter, format_memory, memory_stats
 
 __all__ = [
     "TrainerError",
@@ -158,6 +159,12 @@ class PhaseBundle:
         XOR (T-102) saves its plots in ``on_end``.  Merged with the
         callbacks passed to :meth:`Trainer.from_bundle` (caller wins on
         hook-name conflicts).
+    token_count_fn:
+        Optional ``token_count_fn(batch) -> int`` used by the throughput
+        instrumentation (T-502).  GPT passes the number of predicted
+        tokens (``targets.numel()``); phases without a token notion can
+        leave it out and the Trainer falls back to ``targets`` /
+        ``target_ids`` / ``input_ids``.
     """
 
     model: nn.Module
@@ -167,6 +174,7 @@ class PhaseBundle:
     metric_fn: Callable[[nn.Module, DataLoader], dict[str, float]] | None = None
     optimizer_factory: Callable[[nn.Module], torch.optim.Optimizer] | None = None
     callbacks: dict[str, Callable] | None = None
+    token_count_fn: Callable[[dict], int] | None = None
 
 
 _PHASE_FACTORIES: dict[str, Callable[[dict], PhaseBundle]] = {}
@@ -255,6 +263,7 @@ class Trainer:
         loss_fn: Callable[[nn.Module, dict], tuple[torch.Tensor, dict[str, float]]] | None = None,
         metric_fn: Callable[[nn.Module, DataLoader], dict[str, float]] | None = None,
         callbacks: dict[str, Callable] | None = None,
+        token_count_fn: Callable[[dict], int] | None = None,
         grad_clip: float = 1.0,
     ) -> None:
         self.config = config if config is not None else validate_config({})
@@ -267,8 +276,12 @@ class Trainer:
         self.optimizer = optimizer
         self.loss_fn = loss_fn
         self.metric_fn = metric_fn
+        self.token_count_fn = token_count_fn
         self.grad_clip = grad_clip
         self.callbacks = callbacks or {}
+        # T-502: populated at every logged step and in the run summary.
+        self.throughput = ThroughputMeter()
+        self.last_memory = memory_stats(self.device)
 
         bs = batch_size if batch_size is not None else self.config["batch_size"]
         self.train_loader = DataLoader(
@@ -338,6 +351,7 @@ class Trainer:
             loss_fn=bundle.loss_fn,
             metric_fn=bundle.metric_fn,
             callbacks=merged,
+            token_count_fn=bundle.token_count_fn,
             grad_clip=grad_clip,
         )
 
@@ -355,6 +369,65 @@ class Trainer:
         callback = self.callbacks.get(hook)
         if callback is not None:
             callback(self, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Throughput / memory instrumentation (T-502)
+    # ------------------------------------------------------------------
+
+    def _batch_tokens(self, batch: dict) -> int:
+        """Number of predicted tokens in ``batch`` (0 when not applicable).
+
+        A phase can supply its own counter; otherwise the standard LM keys
+        are used.  XOR/embedding batches have no token notion, so their
+        throughput is reported as steps/sec only.
+        """
+        if self.token_count_fn is not None:
+            try:
+                return max(int(self.token_count_fn(batch)), 0)
+            except (KeyError, TypeError, ValueError):
+                return 0
+        for key in ("targets", "target_ids", "input_ids"):
+            value = batch.get(key)
+            if isinstance(value, torch.Tensor):
+                return int(value.numel())
+        return 0
+
+    def _sync_device(self) -> None:
+        """Wait for queued GPU work so throughput/memory reads are exact."""
+        if self.device.type == "cuda" and torch.cuda.is_available():
+            torch.cuda.synchronize(self.device)
+
+    @contextlib.contextmanager
+    def _pause_throughput(self):
+        """Exclude evaluation/checkpointing from the throughput clock."""
+        self._sync_device()
+        self.throughput.pause()
+        try:
+            yield
+        finally:
+            self.throughput.resume()
+
+    def _metric_record(
+        self, *, kind: str, step: int, epoch: int | None = None, **extra: Any
+    ) -> dict[str, Any]:
+        """Build and persist one T-502 metrics record."""
+        record: dict[str, Any] = {
+            "kind": kind,
+            "step": step,
+            "epoch": epoch,
+            **self.throughput.to_dict(),
+            **self.last_memory.to_dict(),
+            **extra,
+        }
+        if self.run is not None:
+            self.run.log_metric(record)
+        return record
+
+    def _throughput_text(self) -> str:
+        """Compact ``tok/s`` fragment for log lines (empty on non-LM phases)."""
+        if self.throughput.tokens <= 0:
+            return ""
+        return f"tok/s {self.throughput.tokens_per_sec:.0f}"
 
     # ------------------------------------------------------------------
     # Forward / step
@@ -571,6 +644,8 @@ class Trainer:
         log_interval = cfg["log_interval"]
         save_interval = cfg["save_interval"]
 
+        self.throughput.reset()
+        self.last_memory = memory_stats(self.device)
         self._log(
             f"training started: phase={cfg.get('phase') or '?'} "
             f"profile={cfg['profile']} device={self.device} "
@@ -580,6 +655,7 @@ class Trainer:
             + (f" max_steps={max_steps}" if max_steps is not None else "")
             + (f" (resuming at step {self.start_step})" if self.start_step else "")
         )
+        self._log(f"memory at start: {format_memory(self.last_memory)}")
         self._fire("on_start")
 
         start = time.time()
@@ -592,23 +668,40 @@ class Trainer:
                 loss, metrics = self._train_step(batch)
                 step += 1
                 self._last_step = step
+                self.throughput.update(self._batch_tokens(batch))
                 window.append(loss.item())
                 if len(window) > log_interval:
                     window.pop(0)
                 if step % log_interval == 0:
+                    # Flush queued GPU work so the throughput/memory snapshot
+                    # describes the steps we just ran, not work still in flight.
+                    self._sync_device()
+                    self.last_memory = memory_stats(self.device)
                     avg = sum(window) / len(window)
                     lr = self.optimizer.param_groups[0]["lr"]
                     line = (
                         f"step {step} | epoch {self._epoch + 1}/{epochs} | "
                         f"loss {avg:.4f} | lr {lr:.6g}"
                     )
+                    throughput = self._throughput_text()
+                    if throughput:
+                        line += f" | {throughput}"
+                    line += f" | mem {format_memory(self.last_memory)}"
                     for name, value in metrics.items():
                         line += f" | {name} {value:.4f}"
                     self._log(line)
+                    self._metric_record(
+                        kind="step",
+                        step=step,
+                        epoch=self._epoch,
+                        loss=avg,
+                        metrics=dict(metrics),
+                    )
                     self._fire("on_step", step=step, loss=avg, metrics=metrics,
                               epoch=self._epoch)
                 if save_interval and step % save_interval == 0:
-                    self.save_checkpoint(step)
+                    with self._pause_throughput():
+                        self.save_checkpoint(step)
             self._epoch += 1
             # T-104: keep the per-epoch metrics so the on_epoch_end
             # callbacks can record epoch-level loss curves (the UI's
@@ -616,7 +709,8 @@ class Trainer:
             # empty dict; with one it holds e.g. {"val_loss", "val_acc"}.
             val: dict[str, float] = {}
             if self.val_loader is not None:
-                val = self.evaluate()
+                with self._pause_throughput():
+                    val = self.evaluate()
                 vloss = val.get("val_loss")
                 if vloss is not None and (self.best_val is None or vloss < self.best_val):
                     self.best_val = vloss
@@ -630,18 +724,36 @@ class Trainer:
             if max_steps is not None and step >= max_steps:
                 break
 
-        self.save_checkpoint()
+        with self._pause_throughput():
+            self.save_checkpoint()
+        self._sync_device()
         elapsed = time.time() - start
+        self.last_memory = memory_stats(self.device)
         summary = {
             "steps": step,
             "epochs": self._epoch,
             "best_val": self.best_val,
             "elapsed_s": elapsed,
+            "tokens": self.throughput.tokens,
+            "tokens_per_sec": self.throughput.tokens_per_sec,
+            "steps_per_sec": self.throughput.steps_per_sec,
+            "memory": self.last_memory.to_dict(),
         }
+        self._metric_record(
+            kind="summary",
+            step=step,
+            epoch=self._epoch,
+            best_val=self.best_val,
+            wall_elapsed_s=elapsed,
+            memory=self.last_memory.to_dict(),
+        )
+        throughput = self._throughput_text()
         self._log(
             f"training finished: steps={step} epochs={self._epoch} "
             f"best_val={self.best_val if self.best_val is not None else 'n/a'} "
             f"elapsed={elapsed:.1f}s"
+            + (f" | {throughput}" if throughput else "")
+            + f" | mem {format_memory(self.last_memory)}"
         )
         self._fire("on_end", summary=summary)
         return summary

@@ -99,6 +99,11 @@ class RunArtifacts:
         return self.run_dir / "run_meta.json"
 
     @property
+    def metrics_path(self) -> Path:
+        """Append-only JSONL metrics stream (T-502)."""
+        return self.run_dir / "metrics.jsonl"
+
+    @property
     def checkpoints_dir(self) -> Path:
         return self.run_dir / "checkpoints"
 
@@ -213,6 +218,23 @@ class RunArtifacts:
     def mark_finished(self, status: str = "finished") -> None:
         """Record the run's end time and final status (``finished``/``failed``)."""
         self._write_meta(status, datetime.now())
+
+    def log_metric(self, record: dict) -> None:
+        """Append one JSON metric record to ``metrics.jsonl`` (T-502).
+
+        The Trainer writes throughput/memory snapshots here at every log
+        interval plus a final summary.  JSONL keeps the file append-only and
+        crash-safe: a failed or interrupted run still has every record
+        written before it stopped.
+        """
+        line = json.dumps(record, ensure_ascii=False)
+        try:
+            with self.metrics_path.open("a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+        except OSError as exc:
+            raise ArtifactError(
+                f"cannot append metrics to {self.metrics_path}: {exc}"
+            ) from exc
 
     # ------------------------------------------------------------------
     # Checkpoints

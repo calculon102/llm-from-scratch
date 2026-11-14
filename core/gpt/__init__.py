@@ -307,6 +307,8 @@ def build_gpt_phase(cfg: dict) -> PhaseBundle:
         loss_fn=language_model_loss,
         metric_fn=evaluate_perplexity if val_dataset is not None else None,
         callbacks={"on_end": _make_save_callback(data, cfg)},
+        # T-502: every window position predicts one next token.
+        token_count_fn=lambda batch: int(batch["targets"].numel()),
     )
 
 
