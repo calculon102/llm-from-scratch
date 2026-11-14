@@ -12,14 +12,16 @@ Routes
                  curve and final plots (T-104; see ``apps/ui/xor_page.py``)
 ``/tokenizer``   M2 -- character vs. BPE tokenizer compare page (T-205; see
                  ``apps/ui/tokenizer_page.py``)
-``/embeddings``  M3 -- embeddings module
+``/embeddings``  M3 -- embeddings explorer: token neighbours + 2-D map
+                 (T-305; see ``apps/ui/embeddings_page.py``)
 ``/gpt``         M4 -- mini GPT module
 ``/scaling``     M5 -- scaling on the 7900 XTX
 ``/capstone``    M6 -- capstone & docs
 
-The XOR and tokenizer pages are real pages (T-104, T-205); the remaining
-phase pages are shells for now: they show the phase overview and its ticket
-list.  Phase-specific UI lands in the later tickets (T-305, T-406, T-604).
+The XOR, tokenizer and embeddings pages are real pages (T-104, T-205,
+T-305); the remaining phase pages are shells for now: they show the phase
+overview and its ticket list.  Phase-specific UI lands in the later tickets
+(T-406, T-604).
 """
 
 from __future__ import annotations
@@ -100,7 +102,7 @@ PHASE_PAGES: tuple[Phase, ...] = (
             "Skip-gram with negative sampling, nearest-neighbor search and "
             "optional UMAP/t-SNE projection in an explorer UI."
         ),
-        ui_ticket="T-305",
+        ui_ticket=None,
         tickets=(
             ("T-301", "Implement skip-gram pair generator + negative sampler", "P1"),
             ("T-302", "Implement skip-gram model + trainer integration", "P1"),
@@ -392,10 +394,10 @@ def register_pages() -> None:
         _jobs_page()
 
     for phase in PHASE_PAGES:
-        if phase.route in ("/xor", "/tokenizer"):
-            # /xor (T-104) and /tokenizer (T-205) are dedicated pages
-            # defined in their own modules; their routes are registered
-            # when those modules are imported below.
+        if phase.route in ("/xor", "/tokenizer", "/embeddings"):
+            # /xor (T-104), /tokenizer (T-205) and /embeddings (T-305) are
+            # dedicated pages defined in their own modules; their routes are
+            # registered when those modules are imported below.
             continue
         @ui.page(phase.route, title=f"{phase.title} – llm-from-scratch")
         def phase_page(_phase: Phase = phase) -> None:
@@ -407,12 +409,15 @@ def register_pages() -> None:
     # function, while the imported module is cached and would not run its
     # decorators a second time -- so the registration happens here (see
     # ``xor_page.register_xor_page``).
-    from apps.ui import tokenizer_page, xor_page
+    from apps.ui import embeddings_page, tokenizer_page, xor_page
 
     xor_page.register_xor_page()
 
     # Same pattern for the tokenizer compare page (T-205).
     tokenizer_page.register_tokenizer_page()
+
+    # And the embeddings explorer (T-305).
+    embeddings_page.register_embeddings_page()
 
 
 def run_app(
