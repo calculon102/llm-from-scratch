@@ -14,14 +14,15 @@ Routes
                  ``apps/ui/tokenizer_page.py``)
 ``/embeddings``  M3 -- embeddings explorer: token neighbours + 2-D map
                  (T-305; see ``apps/ui/embeddings_page.py``)
-``/gpt``         M4 -- mini GPT module
+``/gpt``         M4 -- mini GPT playground: train artifacts + generation
+                 (T-406; see ``apps/ui/gpt_page.py``)
 ``/scaling``     M5 -- scaling on the 7900 XTX
 ``/capstone``    M6 -- capstone & docs
 
-The XOR, tokenizer and embeddings pages are real pages (T-104, T-205,
-T-305); the remaining phase pages are shells for now: they show the phase
-overview and its ticket list.  Phase-specific UI lands in the later tickets
-(T-406, T-604).
+The XOR, tokenizer, embeddings and GPT pages are real pages (T-104, T-205,
+T-305, T-406); the remaining phase pages are shells for now: they show the
+phase overview and its ticket list.  Phase-specific UI lands in the later
+tickets (T-604).
 """
 
 from __future__ import annotations
@@ -120,7 +121,8 @@ PHASE_PAGES: tuple[Phase, ...] = (
             "Decoder-only transformer with causal attention: training, "
             "perplexity evaluation and interactive text generation."
         ),
-        ui_ticket="T-406",
+        # T-406 done: /gpt is a real page (gpt_page.py).
+        ui_ticket=None,
         tickets=(
             ("T-401", "Implement causal self-attention block with tests", "P0"),
             ("T-402", "Implement decoder transformer stack + LM head", "P0"),
@@ -394,10 +396,11 @@ def register_pages() -> None:
         _jobs_page()
 
     for phase in PHASE_PAGES:
-        if phase.route in ("/xor", "/tokenizer", "/embeddings"):
-            # /xor (T-104), /tokenizer (T-205) and /embeddings (T-305) are
-            # dedicated pages defined in their own modules; their routes are
-            # registered when those modules are imported below.
+        if phase.route in ("/xor", "/tokenizer", "/embeddings", "/gpt"):
+            # /xor (T-104), /tokenizer (T-205), /embeddings (T-305) and
+            # /gpt (T-406) are dedicated pages defined in their own modules;
+            # their routes are registered when those modules are imported
+            # below.
             continue
         @ui.page(phase.route, title=f"{phase.title} – llm-from-scratch")
         def phase_page(_phase: Phase = phase) -> None:
@@ -409,7 +412,7 @@ def register_pages() -> None:
     # function, while the imported module is cached and would not run its
     # decorators a second time -- so the registration happens here (see
     # ``xor_page.register_xor_page``).
-    from apps.ui import embeddings_page, tokenizer_page, xor_page
+    from apps.ui import embeddings_page, gpt_page, tokenizer_page, xor_page
 
     xor_page.register_xor_page()
 
@@ -418,6 +421,9 @@ def register_pages() -> None:
 
     # And the embeddings explorer (T-305).
     embeddings_page.register_embeddings_page()
+
+    # And the GPT generation playground (T-406).
+    gpt_page.register_gpt_page()
 
 
 def run_app(
