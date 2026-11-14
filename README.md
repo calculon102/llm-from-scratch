@@ -153,6 +153,31 @@ select another. The objective, cosine geometry, projection trade-offs and
 failure modes are documented in
 [docs/math/phase3_embeddings.md](docs/math/phase3_embeddings.md).
 
+### Mini GPT (M4)
+
+Train the decoder-only transformer on contiguous LM chunks, with causal
+self-attention, next-token cross-entropy and validation perplexity:
+
+```bash
+python -m scripts.train --config configs/gpt_tiny_debug.yaml
+```
+
+The tiny profile runs on CPU in seconds. The run folder gets
+`gpt/model.pt`, `gpt/model_config.json`, `gpt/meta.json`, `gpt/corpus.txt`,
+and a copy of the tokenizer under `tokenizers/`. Load an artifact and
+generate text with greedy, temperature, top-k or top-p sampling:
+
+```python
+from core.gpt import generate_text, load_gpt_artifacts
+
+art = load_gpt_artifacts("artifacts/<run>")
+print(generate_text(art.model, art.tokenizer, "Die", max_new_tokens=40))
+```
+
+The architecture, causal mask, LM objective, perplexity and sampling math
+are documented in
+[docs/math/phase4_transformer.md](docs/math/phase4_transformer.md).
+
 ## Web UI
 
 The NiceGUI app shell (T-007) is dark by default and responsive (the left
@@ -164,7 +189,7 @@ button). It has one route per pipeline phase:
 /xor         M1 – XOR learning module (real page)
 /tokenizer   M2 – character vs. BPE compare page (real page)
 /embeddings  M3 – embeddings explorer (real page)
-/gpt         M4 – mini GPT module
+/gpt         M4 – mini GPT generation playground (real page)
 /scaling     M5 – scaling on the 7900 XTX
 /capstone    M6 – capstone & docs
 ```
@@ -175,9 +200,9 @@ Start it with:
 python -m scripts.ui [--host 127.0.0.1] [--port 8080] [--reload]
 ```
 
-The XOR, tokenizer and embeddings pages are real; the remaining phase pages
-are shells for now (phase overview + ticket list). Phase-specific UI lands in
-the later tickets (T-406, T-604).
+The XOR, tokenizer, embeddings and GPT pages are real; the remaining phase
+pages are shells for now (phase overview + ticket list). Phase-specific UI
+lands in the later tickets (T-604).
 
 ## License
 
