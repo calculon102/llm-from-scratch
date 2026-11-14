@@ -72,7 +72,9 @@ Common fields: `run_name`, `seed`, `device` (`auto`/`cpu`/`cuda`), `amp`,
 `output_dir`, `log_interval`, `batch_size`, `learning_rate`, `epochs`,
 `max_steps`, `val_split`, `save_interval`, `phase` (`xor`/`tokenizer`/
 `embeddings`/`gpt`), and `phase_config` (phase-specific settings, validated
-by the phase module). See `configs/tiny_debug.yaml` for a sample.
+by the phase module). Setting `profile_defaults: true` fills missing keys
+from the named profile preset (explicit YAML values still win). See
+`configs/tiny_debug.yaml` for a sample.
 
 ## Running
 
@@ -177,6 +179,36 @@ print(generate_text(art.model, art.tokenizer, "Die", max_new_tokens=40))
 The architecture, causal mask, LM objective, perplexity and sampling math
 are documented in
 [docs/math/phase4_transformer.md](docs/math/phase4_transformer.md).
+
+### Scaling on the 7900 XTX (M5)
+
+Profiles follow the ladder `tiny_debug → tiny_train → small → medium →
+max_7900xtx`. The preset values live in `core/scaling.py`; changing the
+single `profile:` line in `configs/gpt_scaling.yaml` switches architecture,
+batch size, learning rate, context length and run length together. Thin
+per-rung configs are available as `configs/gpt_tiny_train.yaml`,
+`gpt_small.yaml`, `gpt_medium.yaml` and `gpt_max_7900xtx.yaml`:
+
+```bash
+python -m scripts.train --config configs/gpt_scaling.yaml
+# edit profile: tiny_debug -> small, then rerun the same command
+```
+
+Every logged step reports tokens/sec and memory; the run folder additionally
+gets an append-only `metrics.jsonl` with throughput and CPU/GPU memory
+snapshots. Benchmark a profile (or the whole ladder) with:
+
+```bash
+python -m scripts.benchmark --profiles tiny_debug tiny_train --steps 100
+python -m scripts.benchmark --profiles all --corpus /path/to/full_de --steps 20
+```
+
+The benchmark writes `benchmark.json` and a Markdown speed/quality table
+under `artifacts/benchmarks/<timestamp>/`. See
+[docs/benchmark_7900xtx.md](docs/benchmark_7900xtx.md) for the report and
+the 7900 XTX reproduction commands. OOM failures checkpoint the run and print
+tailored fallback steps (smaller batch/context, AMP, next profile, resume);
+Ctrl+C, SIGTERM and the UI Stop button also leave a resumable checkpoint.
 
 ## Web UI
 
