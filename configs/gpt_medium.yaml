@@ -1,0 +1,8 @@
+# M5 scaling profile: medium (better fluency/consistency).
+# Values come from core.scaling.PROFILE_PRESETS["medium"].
+# Needs the larger M6 corpus for a meaningful run.
+run_name: gpt_medium
+profile: medium
+profile_defaults: true
+phase: gpt
+output_dir: artifacts

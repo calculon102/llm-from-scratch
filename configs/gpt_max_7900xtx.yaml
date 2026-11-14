@@ -1,0 +1,10 @@
+# M5 scaling profile: max_7900xtx (best single-GPU attempt).
+# Values come from core.scaling.PROFILE_PRESETS["max_7900xtx"].
+# Sized for 24 GB VRAM with AMP; needs the larger M6 corpus for a
+# meaningful run.  Verify the fit first with:
+#   python -m scripts.benchmark --profiles max_7900xtx --steps 5
+run_name: gpt_max_7900xtx
+profile: max_7900xtx
+profile_defaults: true
+phase: gpt
+output_dir: artifacts

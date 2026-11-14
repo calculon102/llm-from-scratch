@@ -1,0 +1,15 @@
+# M5 scale-profile switch (T-501).
+#
+# This is the whole point of the profile layer: change ONE line - the
+# `profile:` value - and the architecture, batch size, learning rate,
+# context length, vocabulary target and run length all follow:
+#
+#   tiny_debug -> tiny_train -> small -> medium -> max_7900xtx
+#
+# The preset values live in core/scaling.py (PROFILE_PRESETS).  Any key
+# added below overrides the preset, e.g. to halve the batch size on OOM.
+run_name: gpt_scaling
+profile: tiny_debug
+profile_defaults: true
+phase: gpt
+output_dir: artifacts

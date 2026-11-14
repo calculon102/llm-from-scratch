@@ -1,0 +1,11 @@
+# M5 scaling profile: tiny_debug (fastest rung).
+#
+# Every value comes from core.scaling.PROFILE_PRESETS["tiny_debug"]; the
+# explicit keys below only identify the run and opt into the preset layer.
+# Change the single `profile:` line in configs/gpt_scaling.yaml to move
+# along the ladder instead of copying this file.
+run_name: gpt_tiny_debug_m5
+profile: tiny_debug
+profile_defaults: true
+phase: gpt
+output_dir: artifacts

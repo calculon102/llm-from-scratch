@@ -78,6 +78,11 @@ _BASE_SCHEMA: dict[str, dict[str, Any]] = {
     # a FAIL is logged as a warning, training still runs.
     "gradcheck": {"type": "bool", "default": False},
     "profile": {"type": "str", "default": "tiny_debug", "choices": SCALE_PROFILES},
+    # Opt-in scale-profile layer (T-501): when true, missing keys are filled
+    # from core.scaling.PROFILE_PRESETS[profile] before schema defaults.
+    # Explicit YAML values always win.  Off by default so existing configs
+    # keep "profile" as a pure label.
+    "profile_defaults": {"type": "bool", "default": False},
     "output_dir": {"type": "str", "default": "artifacts"},
     "log_interval": {"type": "int", "default": 10, "min": 1},
     "batch_size": {"type": "int", "default": 32, "min": 1},
@@ -149,6 +154,14 @@ def validate_config(data: Any, source: str = "<dict>") -> dict:
     if not isinstance(data, dict):
         got = type(data).__name__ if data is not None else "null (empty file?)"
         raise ConfigError(f"{source}: config must be a YAML mapping, got {got}")
+
+    # T-501: profile presets are an optional layer between schema defaults
+    # and explicit YAML values.  Applying them here (rather than only in
+    # load_config) keeps direct validate_config() callers consistent.
+    if data.get("profile_defaults") is True:
+        from core.scaling import apply_profile_defaults
+
+        data = apply_profile_defaults(data)
 
     errors: list[str] = []
     resolved: dict[str, Any] = {}

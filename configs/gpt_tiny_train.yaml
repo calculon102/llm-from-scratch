@@ -1,0 +1,7 @@
+# M5 scaling profile: tiny_train (learn training-loop behaviour).
+# Values come from core.scaling.PROFILE_PRESETS["tiny_train"].
+run_name: gpt_tiny_train
+profile: tiny_train
+profile_defaults: true
+phase: gpt
+output_dir: artifacts

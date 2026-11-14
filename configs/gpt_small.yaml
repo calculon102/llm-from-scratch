@@ -1,0 +1,9 @@
+# M5 scaling profile: small (useful baseline).
+# Values come from core.scaling.PROFILE_PRESETS["small"].
+# Needs the larger M6 corpus for a meaningful run; the bundled sample is
+# enough for a config/shape check.
+run_name: gpt_small
+profile: small
+profile_defaults: true
+phase: gpt
+output_dir: artifacts
