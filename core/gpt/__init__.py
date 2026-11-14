@@ -87,6 +87,13 @@ from core.gpt.pipeline import (
     save_gpt_artifacts,
     write_gpt_artifacts,
 )
+from core.gpt.sampling import (
+    generate,
+    generate_text,
+    sample_next_token,
+    top_k_filter,
+    top_p_filter,
+)
 from core.trainer import PhaseBundle, register_phase
 
 __all__ = [
@@ -121,6 +128,12 @@ __all__ = [
     "prepare_gpt_data",
     "save_gpt_artifacts",
     "write_gpt_artifacts",
+    # sampling / generation (T-405)
+    "generate",
+    "generate_text",
+    "sample_next_token",
+    "top_k_filter",
+    "top_p_filter",
     # config / phase registration
     "GPT_PHASE_SCHEMA",
     "validate_gpt_phase_config",
