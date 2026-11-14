@@ -1,0 +1,7 @@
+Sprache und Schrift
+
+Die deutsche Sprache kennt 26 Grundbuchstaben, dazu kommen die Umlaute ä, ö und ü sowie das scharfe ß. In der Schweiz schreibt man statt ß meist ss. Diese kleinen Unterschiede sind für einen Tokenizer wichtig, denn jede Schreibweise erzeugt andere Zeichenfolgen.
+
+Viele deutsche Wörter sind zusammengesetzt. Beispiele sind Fußgängerüberweg, Straßenbahnhaltestelle und Donaudampfschifffahrtsgesellschaft. Ein Tokenizer, der nur ganze Wörter kennt, müsste für jede neue Zusammensetzung ein neues Symbol lernen. Ein Tokenizer mit Teilwörtern kann solche Wörter aus bekannten Bausteinen zusammensetzen.
+
+Ein Text über Sprache ist nie nur eine Folge von Buchstaben. Satzzeichen, Ziffern, Leerzeichen und Zeilenumbrüche tragen Bedeutung. Deshalb normalisiert die Vorverarbeitung zuerst die Zeichenkodierung, entfernt Steuerzeichen und fasst überflüssige Leerzeichen zusammen. Ein Tokenizer ist kein Wörterbuch!
