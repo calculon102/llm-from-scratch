@@ -21,6 +21,15 @@ when this package is imported::
 
 from __future__ import annotations
 
+from core.gpt.data import (
+    DEFAULT_CONTEXT_LENGTH,
+    LMChunkDataset,
+    LMDatasets,
+    build_lm_datasets,
+    chunk_starts,
+    make_lm_dataloader,
+    split_token_ids,
+)
 from core.gpt.model import (
     CausalSelfAttention,
     GPTConfig,
@@ -37,4 +46,11 @@ __all__ = [
     "MiniGPT",
     "TransformerBlock",
     "causal_mask",
+    "DEFAULT_CONTEXT_LENGTH",
+    "LMChunkDataset",
+    "LMDatasets",
+    "build_lm_datasets",
+    "chunk_starts",
+    "make_lm_dataloader",
+    "split_token_ids",
 ]
