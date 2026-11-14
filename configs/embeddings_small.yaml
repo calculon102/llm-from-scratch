@@ -1,0 +1,40 @@
+run_name: embeddings_small
+seed: 42
+device: auto
+amp: false
+gradcheck: false
+profile: small
+output_dir: artifacts
+log_interval: 50
+batch_size: 64
+learning_rate: 0.01
+epochs: 25
+max_steps: null
+val_split: 0.1
+save_interval: 500
+
+phase: embeddings
+phase_config:
+  tokenizer_bundle: ""
+  corpus_path: data/sample_de
+  vocab_size: 400
+  min_frequency: 2
+  max_token_length: 18
+  embedding_dim: 64
+  window_size: 4
+  dynamic_window: true
+  negative_samples: 7
+  negative_power: 0.75
+  max_pairs: 0
+  min_line_chars: 2
+  max_line_chars: 2000
+  min_alpha_ratio: 0.0
+  drop_duplicates: true
+  lowercase: false
+  encodings:
+    - utf-8-sig
+    - utf-8
+    - cp1252
+    - latin-1
+  extensions:
+    - .txt

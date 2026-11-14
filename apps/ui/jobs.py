@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import core.xor  # noqa: F401  # registers the "xor" phase (T-101)
+import core.embeddings  # noqa: F401  # registers the "embeddings" phase (T-302)
 from core.artifacts import RunArtifacts, create_run
 from core.config import load_config, validate_config
 from core.device import describe_device, get_device_info
