@@ -128,6 +128,31 @@ noise (mixed encodings, BOM, CRLF, duplicates); see `data/README.md`.
 The math and trade-offs are written up in
 [docs/math/phase2_tokenizer.md](docs/math/phase2_tokenizer.md).
 
+### Embeddings (M3)
+
+Train skip-gram word vectors with negative sampling on the cleaned corpus.
+The run reuses a saved tokenizer bundle when one is configured, exports the
+centre embedding table, and keeps the tokenizer/corpus for reproducibility:
+
+```bash
+python -m scripts.train --config configs/embeddings_tiny_debug.yaml
+python -m scripts.train --config configs/embeddings_small.yaml
+```
+
+The run folder gets `embeddings/vectors.npy`, `embeddings/vocab.json`,
+`embeddings/meta.json`, and a copy of the tokenizer under `tokenizers/`.
+Query the learned space or draw a 2-D projection from the command line:
+
+```bash
+python -m scripts.embeddings neighbors --token Katze --top-k 10
+python -m scripts.embeddings project --method tsne
+```
+
+Both commands use the newest embedding run by default; pass `--run PATH` to
+select another. The objective, cosine geometry, projection trade-offs and
+failure modes are documented in
+[docs/math/phase3_embeddings.md](docs/math/phase3_embeddings.md).
+
 ## Web UI
 
 The NiceGUI app shell (T-007) is dark by default and responsive (the left
@@ -138,7 +163,7 @@ button). It has one route per pipeline phase:
 /            home / dashboard (M0)
 /xor         M1 – XOR learning module (real page)
 /tokenizer   M2 – character vs. BPE compare page (real page)
-/embeddings  M3 – embeddings module
+/embeddings  M3 – embeddings explorer (real page)
 /gpt         M4 – mini GPT module
 /scaling     M5 – scaling on the 7900 XTX
 /capstone    M6 – capstone & docs
@@ -150,9 +175,9 @@ Start it with:
 python -m scripts.ui [--host 127.0.0.1] [--port 8080] [--reload]
 ```
 
-The XOR and tokenizer pages are real; the remaining phase pages are shells
-for now (phase overview + ticket list). Phase-specific UI lands in the
-later tickets (T-305, T-406, T-604).
+The XOR, tokenizer and embeddings pages are real; the remaining phase pages
+are shells for now (phase overview + ticket list). Phase-specific UI lands in
+the later tickets (T-406, T-604).
 
 ## License
 
