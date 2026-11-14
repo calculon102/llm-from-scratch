@@ -22,7 +22,7 @@ MVP = M0 + M1 + M2 + core M4. See [docs/roadmap.md](docs/roadmap.md) for details
 core/          shared library (config, trainer, device, artifacts, tokenizer, ...)
 apps/ui/       NiceGUI web app (dark, responsive)
 configs/       YAML config profiles (tiny_debug → max_7900xtx)
-data/          bundled sample corpora (German-first, offline)
+data/          bundled samples plus the local, gitignored German corpus
 scripts/       CLI entrypoints
 artifacts/     per-run outputs (config snapshot, logs, checkpoints, plots)
 docs/math/     per-phase math notes
@@ -209,6 +209,98 @@ under `artifacts/benchmarks/<timestamp>/`. See
 the 7900 XTX reproduction commands. OOM failures checkpoint the run and print
 tailored fallback steps (smaller batch/context, AMP, next profile, resume);
 Ctrl+C, SIGTERM and the UI Stop button also leave a resumable checkpoint.
+
+### Training on the German corpus
+
+The bundled `data/sample_de/` collection is deliberately tiny (it exists to
+exercise the ingestion pipeline). Real training runs use the local German
+corpus under `data/corpus_de/`:
+
+| Part | Size | Files | Source |
+| --- | ---: | ---: | --- |
+| `wikipedia/` | ~205 MiB | 3 shards | 2026-11-06 German Wikipedia dump, cleaned with WikiExtractor |
+| `gutenberg/` | ~61 MiB | 248 books | German-language Project Gutenberg texts |
+| **total** | **~266 MiB** | **251** | **274.7M characters** |
+
+The corpus is **gitignored** because of its size and upstream licences.
+`data/corpus_manifest.json` records the exact byte/line counts, source
+URLs and licences; `data/README.md` describes how it is staged. Wikipedia
+text is CC BY-SA 4.0; Gutenberg texts are public domain in the United
+States, but German copyright terms can differ.
+
+Both ready-made configs reuse the 4096-token BPE bundle under
+`data/corpus_de/tokenizer/`. That bundle is trained once on a ~1 MiB
+sample, so the expensive pure-Python BPE training is not repeated for
+every run.
+
+#### Quick CPU smoke run
+
+`configs/gpt_de_quick.yaml` trains the `tiny_train` profile for 300 steps
+on the ~8 MiB `data/corpus_de_quick/` slice and finishes in well under a
+minute on CPU:
+
+```bash
+.venv/bin/python -m scripts.train --config configs/gpt_de_quick.yaml
+```
+
+This is a plumbing/throughput check, not a quality run: expect a falling
+loss and gibberish samples. Raise `max_steps` in the config to train
+longer.
+
+#### Small profile (GPU recommended)
+
+`configs/gpt_de_small.yaml` uses the full ~266 MiB corpus and the
+`small` profile (context 256, 6 layers, 384-wide, ~12.3M parameters,
+10,000 steps). A ROCm/CUDA GPU is strongly recommended; on CPU, use the
+quick config instead:
+
+```bash
+.venv/bin/python -m scripts.train --config configs/gpt_de_small.yaml
+```
+
+Switch rungs by changing `profile:` in `configs/gpt_de_small.yaml`; the
+corpus and tokenizer paths in its `phase_config` stay valid for every
+rung. The generic per-rung configs (`gpt_tiny_train.yaml`,
+`gpt_medium.yaml`, `gpt_max_7900xtx.yaml`) point at the tiny sample
+corpus unless you copy this `phase_config` across.
+
+#### Inspect the run
+
+Each run creates `artifacts/<timestamp>_<run_name>/` with the resolved
+config, `run.log`, `metrics.jsonl`, checkpoints, and the saved GPT model:
+
+```bash
+tail -f artifacts/<run>/run.log          # loss, val loss, tok/s, memory
+ls artifacts/<run>/gpt                    # model.pt, model_config.json, meta.json
+```
+
+Load a saved model and generate text from Python:
+
+```python
+from core.gpt import generate_text, load_gpt_artifacts
+
+art = load_gpt_artifacts("artifacts/<run>")
+print(generate_text(art.model, art.tokenizer, "Die Geschichte", max_new_tokens=40))
+```
+
+Or start the UI and use the `/gpt` generation playground and `/jobs` run
+list:
+
+```bash
+.venv/bin/python -m scripts.ui
+# open http://127.0.0.1:8080/gpt
+```
+
+Resume an interrupted or completed run from its folder or a checkpoint:
+
+```bash
+.venv/bin/python -m scripts.train --config configs/gpt_de_small.yaml \
+    --resume artifacts/<run>
+```
+
+To rebuild the tokenizer after changing the corpus, retrain it on the
+sample described in `configs/tokenizer_de.yaml`, then copy the resulting
+`tokenizers/` directory to `data/corpus_de/tokenizer/`.
 
 ## Web UI
 

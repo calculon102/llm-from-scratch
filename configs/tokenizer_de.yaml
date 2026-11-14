@@ -1,0 +1,36 @@
+# Build the reusable German tokenizer bundle for the local corpus.
+#
+# Training BPE on the full ~266 MiB corpus in pure Python is expensive, so
+# this config trains on a deterministic ~1 MiB sample of the quick corpus:
+#
+#   head -c 700000 data/corpus_de_quick/wikipedia/wiki_quick.txt \
+#       > data/raw/tokenizer_sample.txt
+#   head -c 300000 data/corpus_de_quick/gutenberg/gutenberg_quick.txt \
+#       >> data/raw/tokenizer_sample.txt
+#
+# Then copy the result next to the corpus:
+#
+#   cp -r artifacts/<tokenizer-run>/tokenizers data/corpus_de/tokenizer
+run_name: tokenizer_de
+seed: 42
+phase: tokenizer
+profile: tiny_debug
+output_dir: artifacts
+phase_config:
+  corpus_path: data/raw/tokenizer_sample.txt
+  vocab_size: 4096
+  min_frequency: 2
+  max_token_length: 32
+  min_line_chars: 2
+  max_line_chars: 2000
+  min_alpha_ratio: 0.0
+  drop_duplicates: true
+  lowercase: false
+  encodings:
+    - utf-8-sig
+    - utf-8
+    - cp1252
+    - latin-1
+  extensions:
+    - .txt
+  metrics_sample_chars: 4000

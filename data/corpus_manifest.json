@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-11-14T23:43:47+00:00",
+  "description": "Local German-first training corpus for llm-from-scratch. The staged text is gitignored; raw downloads live in data/raw/.",
+  "sources": [
+    {
+      "name": "German Wikipedia",
+      "dump": "dewiki-latest-pages-articles5.xml-p6115465p7615464.bz2",
+      "dump_date": "2026-11-06",
+      "url": "https://dumps.wikimedia.org/dewiki/latest/",
+      "license": "CC BY-SA 4.0",
+      "extractor": "WikiExtractor 3.1.0",
+      "raw_bytes": 722456986,
+      "full_dump": "data/raw/dewiki-latest-pages-articles.xml.bz2",
+      "full_dump_bytes": 8018410392,
+      "full_dump_note": "Complete dump downloaded for future extraction; the staged corpus uses the part5 file above."
+    },
+    {
+      "name": "Project Gutenberg (German)",
+      "catalog": "https://www.gutenberg.org/cache/epub/feeds/pg_catalog.csv",
+      "language_filter": "de",
+      "type_filter": "Text",
+      "license": "public domain in the United States; check German copyright",
+      "raw_files": 2393,
+      "failed_downloads": 23
+    }
+  ],
+  "corpus": {
+    "path": "data/corpus_de",
+    "wikipedia": {
+      "files": 3,
+      "bytes": 214779877,
+      "chars": 211291541,
+      "lines": 1039885
+    },
+    "gutenberg": {
+      "files": 248,
+      "bytes": 64337121,
+      "chars": 63450740,
+      "lines": 1319109
+    },
+    "total": {
+      "files": 251,
+      "bytes": 279116998,
+      "chars": 274742281,
+      "lines": 2358994
+    }
+  },
+  "quick": {
+    "path": "data/corpus_de_quick",
+    "files": 2,
+    "bytes": 8315771,
+    "chars": 8182966,
+    "lines": 86906
+  },
+  "tokenizer": {
+    "path": "data/corpus_de/tokenizer",
+    "vocab_size": 4096,
+    "trained_on": "data/raw/tokenizer_sample.txt (~1 MiB sample)"
+  }
+}

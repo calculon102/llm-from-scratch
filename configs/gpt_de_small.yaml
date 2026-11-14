@@ -1,0 +1,17 @@
+# The "small" rung on the local German corpus.
+#
+# data/corpus_de/ is the full local mix (~266 MiB of cleaned text) built
+# from German Wikipedia + Project Gutenberg; see data/README.md.  It is
+# gitignored and must exist locally.  The tokenizer bundle is trained once
+# from a small, deterministic sample (configs/tokenizer_de.yaml) and reused
+# here, because training BPE on the full corpus in pure Python is slow.
+#
+# A GPU (ROCm/CUDA) is strongly recommended; on CPU use gpt_de_quick.yaml.
+run_name: gpt_de_small
+profile: small
+profile_defaults: true
+phase: gpt
+output_dir: artifacts
+phase_config:
+  corpus_path: data/corpus_de
+  tokenizer_bundle: data/corpus_de/tokenizer

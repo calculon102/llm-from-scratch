@@ -8,6 +8,7 @@ win.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -54,27 +55,36 @@ def test_single_profile_line_switches_the_whole_scale(tmp_path: Path) -> None:
     """The ticket's acceptance criterion, exercised on the real YAML."""
     source = REPO_ROOT / "configs" / "gpt_scaling.yaml"
     text = source.read_text(encoding="utf-8")
-    assert "profile: tiny_debug" in text
+    current = re.search(r"^profile:\s*(\w+)\s*$", text, re.MULTILINE)
+    assert current is not None
+    current_name = current.group(1)
+    current_cfg = load_config(source)
+    assert current_cfg["profile"] == current_name
 
-    tiny = load_config(source)
-    assert tiny["phase_config"]["n_embd"] == 32
-    assert tiny["phase_config"]["context_length"] == 16
-    assert tiny["batch_size"] == 8
-
+    # Switch to a different rung without depending on the checked-in default.
+    target_name = "small" if current_name != "small" else "tiny_debug"
     switched_path = tmp_path / "switched.yaml"
     switched_path.write_text(
-        text.replace("profile: tiny_debug", "profile: small"), encoding="utf-8"
+        re.sub(
+            r"^profile:\s*\w+\s*$",
+            f"profile: {target_name}",
+            text,
+            count=1,
+            flags=re.MULTILINE,
+        ),
+        encoding="utf-8",
     )
-    small = load_config(switched_path)
-    assert small["profile"] == "small"
-    assert small["phase_config"]["n_embd"] == 384
-    assert small["phase_config"]["context_length"] == 256
-    assert small["phase_config"]["n_layer"] == 6
-    assert small["batch_size"] == 16
-    assert small["amp"] is True
+    target = load_config(switched_path)
+    preset = PROFILE_PRESETS[target_name]
+    assert target["profile"] == target_name
+    assert target["phase_config"]["n_embd"] == preset.phase_config["n_embd"]
+    assert target["phase_config"]["context_length"] == preset.phase_config["context_length"]
+    assert target["phase_config"]["n_layer"] == preset.phase_config["n_layer"]
+    assert target["batch_size"] == preset.config["batch_size"]
+    assert target["amp"] is preset.config["amp"]
     # One line changed, the rest of the scale followed.
-    assert small["learning_rate"] != tiny["learning_rate"]
-    assert small["max_steps"] != tiny["max_steps"]
+    assert target["learning_rate"] != current_cfg["learning_rate"]
+    assert target["max_steps"] != current_cfg["max_steps"]
 
 
 def test_explicit_yaml_values_win_over_profile_defaults() -> None:

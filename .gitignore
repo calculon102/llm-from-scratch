@@ -15,6 +15,12 @@ artifacts/*
 # Local caches / temp
 .cache/
 *.log
+logs/
+
+# Full corpora (large, downloaded locally; see data/README.md)
+data/raw/
+data/corpus_de/
+data/corpus_de_quick/
 
 # IDE / OS
 .idea/
