@@ -210,6 +210,23 @@ Pipeline-only choices are CLI flags (`--profile`, `--input`,
 `--max-new-tokens`, `--temperature`, `--top-k`, `--top-p`,
 `--sample-seed`, `--output-dir`); the YAML file is a normal GPT config.
 
+### MVP demo and release checklist (M6)
+
+Reproduce the whole MVP (M0 + M1 + M2 + core M4) with one command:
+
+```bash
+python -m scripts.mvp_demo
+```
+
+It writes resolved config copies and all runs into a fresh
+`artifacts/mvp_demo/<timestamp>/` folder, then runs XOR training, tokenizer
+training and the preprocess→tokenizer→GPT→eval pipeline, checking each
+stage's artifacts. Use `--device cpu` for the CPU fallback and
+`--max-new-tokens` to lengthen the generated sample. The command exits 0
+only when the full flow passed. See
+[docs/release_checklist.md](docs/release_checklist.md) for the manual
+commands, acceptance checklist, release steps and troubleshooting.
+
 ### Scaling on the 7900 XTX (M5)
 
 Profiles follow the ladder `tiny_debug → tiny_train → small → medium →

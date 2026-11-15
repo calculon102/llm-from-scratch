@@ -85,13 +85,15 @@ def _probability_grid(
     grids and ``probs`` has shape ``(grid_size, grid_size)``.
     """
     model.eval()
+    device = next(model.parameters()).device
     with torch.no_grad():
-        x1 = torch.linspace(x_range[0], x_range[1], grid_size)
-        x2 = torch.linspace(x_range[0], x_range[1], grid_size)
+        x1 = torch.linspace(x_range[0], x_range[1], grid_size, device=device)
+        x2 = torch.linspace(x_range[0], x_range[1], grid_size, device=device)
         g1, g2 = torch.meshgrid(x1, x2, indexing="ij")
         points = torch.stack([g1.flatten(), g2.flatten()], dim=1)
         probs = torch.sigmoid(model(points)).reshape(grid_size, grid_size)
-    return g1, g2, probs
+    # Figure code below uses numpy/matplotlib, which need CPU tensors.
+    return g1.cpu(), g2.cpu(), probs.cpu()
 
 
 def decision_boundary_fig(
@@ -135,9 +137,10 @@ def activations_fig(
 
     _use_headless_backend()
     model.eval()
+    device = next(model.parameters()).device
     with torch.no_grad():
-        x1 = torch.linspace(x_range[0], x_range[1], grid_size)
-        x2 = torch.linspace(x_range[0], x_range[1], grid_size)
+        x1 = torch.linspace(x_range[0], x_range[1], grid_size, device=device)
+        x2 = torch.linspace(x_range[0], x_range[1], grid_size, device=device)
         g1, g2 = torch.meshgrid(x1, x2, indexing="ij")
         points = torch.stack([g1.flatten(), g2.flatten()], dim=1)
         # The network's layers: for a XorMLP the ``.net`` Sequential holds
@@ -147,7 +150,7 @@ def activations_fig(
         # so composing them gives every hidden unit's response to the
         # input plane — before the final linear layer has collapsed it.
         net = getattr(model, "net", model)
-        acts = net[1](net[0](points)).reshape(grid_size, grid_size, -1)
+        acts = net[1](net[0](points)).reshape(grid_size, grid_size, -1).cpu()
     n_units = acts.shape[2]
     ncols = min(4, n_units)
     nrows = math.ceil(n_units / ncols)

@@ -81,11 +81,18 @@ def xor_loss(
     graph — it is only for logging, never for the gradient — and is
     reported as a float so the Trainer can log and epoch-average it.
     """
-    logits = model(batch["x"])
-    loss = F.binary_cross_entropy_with_logits(logits, batch["y"])
+    # The Trainer keeps batch tensors on CPU so every phase stays
+    # device-agnostic; the model may live on CUDA/ROCm.  Move the inputs to
+    # the model's device before the forward pass (same contract as
+    # core.gpt.model.language_model_loss).
+    device = next(model.parameters()).device
+    inputs = batch["x"].to(device=device, dtype=torch.float32)
+    targets = batch["y"].to(device=device, dtype=torch.float32)
+    logits = model(inputs)
+    loss = F.binary_cross_entropy_with_logits(logits, targets)
     with torch.no_grad():
-        pred = (torch.sigmoid(logits) >= 0.5).to(batch["y"].dtype)
-        acc = (pred == batch["y"]).to(torch.float32).mean()
+        pred = (torch.sigmoid(logits) >= 0.5).to(targets.dtype)
+        acc = (pred == targets).to(torch.float32).mean()
     return loss, {"acc": acc.item()}
 
 

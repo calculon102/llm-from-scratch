@@ -52,7 +52,7 @@ Educational, Python-only, offline-capable project to build an LLM pipeline step-
 - Preprocess profiles
 - End-to-end pipeline command
 - Artifacts/runs browser in UI
-- Scaling guide + MVP release checklist
+- Scaling guide + MVP release checklist + one-command demo
 
 ## Suggested board workflow
 Backlog → Ready → In Progress → Blocked → Review/Verify → Done
