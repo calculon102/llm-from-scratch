@@ -171,3 +171,91 @@ def test_sample_profile_creates_run_in_tmp(tmp_path):
     run = create_run(cfg, output_dir=tmp_path)
     assert run.run_dir.is_dir()
     assert run.config_path.is_file()
+
+
+# ---------------------------------------------------------------------------
+# Runs/artifacts browsing helpers (T-604)
+# ---------------------------------------------------------------------------
+
+def test_list_runs_reads_index_and_meta(tmp_path):
+    from core.artifacts import list_runs
+
+    a = create_run(make_config(tmp_path, run_name="alpha", phase="xor"))
+    b = create_run(make_config(tmp_path, run_name="beta", phase="gpt"))
+    a.mark_finished()
+    b.mark_finished("failed")
+
+    runs = list_runs(tmp_path / "artifacts")
+    by_name = {run.run_name: run for run in runs}
+    assert set(by_name) == {"alpha", "beta"}
+    assert by_name["alpha"].status == "finished"
+    assert by_name["beta"].status == "failed"
+    assert by_name["alpha"].phase == "xor"
+    assert all(run.duration_s is not None for run in runs)
+    assert len(list_runs(tmp_path / "artifacts", limit=1)) == 1
+
+
+def test_list_runs_scans_unindexed_folders_and_skips_missing(tmp_path):
+    from core.artifacts import list_runs
+
+    root = tmp_path / "artifacts"
+    root.mkdir()
+    manual = root / "manual_run"
+    manual.mkdir()
+    (manual / "run_meta.json").write_text(
+        json.dumps(
+            {
+                "run_name": "manual",
+                "phase": "gpt",
+                "status": "finished",
+                "start_time": "2026-01-01T10:00:00",
+                "end_time": "2026-01-01T10:00:05",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (root / "runs.jsonl").write_text(
+        json.dumps({"run_dir": str(root / "deleted_run")}) + "\nnot json\n",
+        encoding="utf-8",
+    )
+    runs = list_runs(root)
+    assert [run.run_name for run in runs] == ["manual"]
+    assert runs[0].duration_s == 5.0
+
+
+def test_artifact_entries_and_previews(tmp_path):
+    from core.artifacts import artifact_entries, artifact_preview
+
+    run = create_run(make_config(tmp_path))
+    (run.run_dir / "notes.txt").write_text("hello artifacts\n", encoding="utf-8")
+    (run.run_dir / "metrics.json").write_text('{"loss": 1.5}', encoding="utf-8")
+    (run.run_dir / "plot.png").write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    (run.run_dir / "checkpoints" / "final.pt").write_bytes(b"\x00\x01\x02")
+
+    entries = {entry.relative_path: entry for entry in artifact_entries(run.run_dir)}
+    assert entries["notes.txt"].kind == "text"
+    assert entries["metrics.json"].kind == "json"
+    assert entries["plot.png"].kind == "image"
+    assert entries["checkpoints/final.pt"].kind == "binary"
+    assert entries["notes.txt"].size == len("hello artifacts\n")
+
+    text = artifact_preview(entries["notes.txt"])
+    assert text.text == "hello artifacts\n"
+    assert text.truncated is False
+
+    pretty = artifact_preview(entries["metrics.json"])
+    assert '"loss": 1.5' in pretty.text
+
+    binary = artifact_preview(entries["checkpoints/final.pt"])
+    assert binary.text is None
+
+    truncated = artifact_preview(entries["notes.txt"], max_chars=5)
+    assert truncated.text == "hello"
+    assert truncated.truncated is True
+
+
+def test_artifact_entries_missing_run_raises(tmp_path):
+    from core.artifacts import artifact_entries
+
+    with pytest.raises(ArtifactError, match="not found"):
+        artifact_entries(tmp_path / "nope")

@@ -340,6 +340,8 @@ button). It has one route per pipeline phase:
 
 ```
 /            home / dashboard (M0)
+/jobs        M0 – job runner: start/stop/status/log stream
+/runs        M6 – recent runs + artifact browser (real page)
 /xor         M1 – XOR learning module (real page)
 /tokenizer   M2 – character vs. BPE compare page (real page)
 /embeddings  M3 – embeddings explorer (real page)
@@ -354,9 +356,12 @@ Start it with:
 python -m scripts.ui [--host 127.0.0.1] [--port 8080] [--reload]
 ```
 
-The XOR, tokenizer, embeddings and GPT pages are real; the remaining phase
-pages are shells for now (phase overview + ticket list). Phase-specific UI
-lands in the later tickets (T-604).
+The XOR, tokenizer, embeddings, GPT and runs pages are real; the remaining
+phase pages are shells for now (phase overview + ticket list). Phase-specific
+UI lands in the later tickets. The runs page reads the artifact manager's
+`runs.jsonl` index, shows each run's status, timings and pipeline metrics, and
+lets you preview configs, logs, JSON, metrics and plots in place. Point it at
+another output root with `LLM_ARTIFACTS_ROOT=/path/to/artifacts`.
 
 ## License
 

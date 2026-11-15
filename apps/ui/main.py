@@ -8,6 +8,8 @@ Routes
 ------
 ``/``            home / dashboard (M0)
 ``/jobs``        M0 -- job runner: start/stop/status/log stream (T-008)
+``/runs``        M6 -- recent runs + artifact browser (T-604; see
+                 ``apps/ui/runs_page.py``)
 ``/xor``         M1 -- XOR learning page: controls, train/stop, live loss
                  curve and final plots (T-104; see ``apps/ui/xor_page.py``)
 ``/tokenizer``   M2 -- character vs. BPE tokenizer compare page (T-205; see
@@ -20,9 +22,9 @@ Routes
 ``/capstone``    M6 -- capstone & docs
 
 The XOR, tokenizer, embeddings and GPT pages are real pages (T-104, T-205,
-T-305, T-406); the remaining phase pages are shells for now: they show the
-phase overview and its ticket list.  Phase-specific UI lands in the later
-tickets (T-604).
+T-305, T-406), as is the runs/artifacts browser (T-604); the remaining
+phase pages are shells for now: they show the phase overview and its
+ticket list.  Phase-specific UI lands in the later tickets.
 """
 
 from __future__ import annotations
@@ -157,7 +159,7 @@ PHASE_PAGES: tuple[Phase, ...] = (
             "Offline corpus cache, preprocess profiles, one-command "
             "end-to-end pipeline, runs browser and the scaling guide."
         ),
-        ui_ticket="T-604",
+        ui_ticket="T-606",
         tickets=(
             ("T-601", "Add corpus downloader + local cache manifest (DE-first)", "P1"),
             ("T-602", "Add preprocess profiles", "P1"),
@@ -208,6 +210,9 @@ def _shell(active_route: str) -> ui.column:
         )
         ui.link("Jobs", target="/jobs").classes(
             "q-mx-md q-my-xs" + (" q-text-bold" if active_route == "/jobs" else "")
+        )
+        ui.link("Runs", target="/runs").classes(
+            "q-mx-md q-my-xs" + (" q-text-bold" if active_route == "/runs" else "")
         )
         for phase in PHASE_PAGES:
             ui.link(phase.title, target=phase.route).classes(
@@ -412,7 +417,7 @@ def register_pages() -> None:
     # function, while the imported module is cached and would not run its
     # decorators a second time -- so the registration happens here (see
     # ``xor_page.register_xor_page``).
-    from apps.ui import embeddings_page, gpt_page, tokenizer_page, xor_page
+    from apps.ui import embeddings_page, gpt_page, runs_page, tokenizer_page, xor_page
 
     xor_page.register_xor_page()
 
@@ -424,6 +429,9 @@ def register_pages() -> None:
 
     # And the GPT generation playground (T-406).
     gpt_page.register_gpt_page()
+
+    # And the runs/artifacts browser (T-604).
+    runs_page.register_runs_page()
 
 
 def run_app(
