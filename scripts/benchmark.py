@@ -150,6 +150,7 @@ def benchmark_profile(
     output_root: Path,
     device: torch.device,
     corpus: str | None = None,
+    tokenizer_bundle: str | None = None,
     amp: bool | None = None,
     seed: int = 42,
 ) -> BenchmarkResult:
@@ -175,6 +176,10 @@ def benchmark_profile(
     )
     if corpus:
         cfg["phase_config"]["corpus_path"] = corpus
+    if tokenizer_bundle:
+        # Reuse a trained bundle instead of rerunning pure-Python BPE on the
+        # benchmark corpus.  This is what makes full-corpus slices practical.
+        cfg["phase_config"]["tokenizer_bundle"] = tokenizer_bundle
     if amp is not None:
         cfg["amp"] = amp
 
@@ -278,6 +283,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Corpus path override (default: each profile's data/sample_de).",
     )
     parser.add_argument(
+        "--tokenizer-bundle",
+        default=None,
+        help=(
+            "Reuse a trained tokenizer bundle instead of training BPE on the "
+            "benchmark corpus (recommended for full-corpus slices)."
+        ),
+    )
+    parser.add_argument(
         "--device", default="auto", choices=("auto", "cpu", "cuda"), help="Execution device."
     )
     parser.add_argument(
@@ -318,6 +331,7 @@ def main(argv: list[str] | None = None) -> int:
             output_root=output_root,
             device=info.device,
             corpus=args.corpus,
+            tokenizer_bundle=args.tokenizer_bundle,
             amp=args.amp,
             seed=args.seed,
         )
@@ -337,6 +351,7 @@ def main(argv: list[str] | None = None) -> int:
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "device": describe_device(info),
         "corpus": args.corpus or "profile default (data/sample_de)",
+        "tokenizer_bundle": args.tokenizer_bundle,
         "steps": args.steps,
         "torch": torch.__version__,
         "profiles": profiles,

@@ -13,6 +13,7 @@ from pathlib import Path
 
 import torch
 
+from core.tokenizer import save_bundle, train_bundle
 from scripts.benchmark import (
     BenchmarkResult,
     _parse_profiles,
@@ -41,6 +42,31 @@ def test_benchmark_tiny_debug_measures_throughput(tmp_path) -> None:
     assert result.cpu_peak_mb and result.cpu_peak_mb > 0
     assert Path(result.run_dir).is_dir()
     assert (Path(result.run_dir) / "metrics.jsonl").is_file()
+
+
+def test_benchmark_reuses_tokenizer_bundle(tmp_path) -> None:
+    """A supplied bundle must bypass BPE training (needed on big corpora)."""
+    bundle = train_bundle(
+        "Hallo Welt. Das ist ein Test. " * 80,
+        vocab_size=60,
+        source="benchmark-fixture",
+    )
+    save_bundle(bundle, tmp_path / "tokenizer")
+
+    result = benchmark_profile(
+        "tiny_debug",
+        steps=1,
+        output_root=tmp_path,
+        device=torch.device("cpu"),
+        tokenizer_bundle=str(tmp_path / "tokenizer"),
+        amp=False,
+    )
+    assert result.status == "ok", result.note
+    assert result.vocab_size == bundle.bpe.vocab_size
+    meta = json.loads(
+        (Path(result.run_dir) / "gpt" / "meta.json").read_text(encoding="utf-8")
+    )
+    assert meta["tokenizer_source"] == "benchmark-fixture"
 
 
 def test_benchmark_skips_profiles_that_do_not_fit_the_corpus(tmp_path) -> None:

@@ -236,7 +236,10 @@ python -m scripts.benchmark --profiles all --corpus /path/to/full_de --steps 20
 The benchmark writes `benchmark.json` and a Markdown speed/quality table
 under `artifacts/benchmarks/<timestamp>/`. See
 [docs/benchmark_7900xtx.md](docs/benchmark_7900xtx.md) for the report and
-the 7900 XTX reproduction commands. OOM failures checkpoint the run and print
+the 7900 XTX reproduction commands, and
+[docs/scaling_7900xtx.md](docs/scaling_7900xtx.md) for the practical tuning
+guide (ROCm checks, VRAM budget, batch/context trade-offs, OOM playbook and
+measurement protocol). OOM failures checkpoint the run and print
 tailored fallback steps (smaller batch/context, AMP, next profile, resume);
 Ctrl+C, SIGTERM and the UI Stop button also leave a resumable checkpoint.
 

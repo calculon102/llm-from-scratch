@@ -8,7 +8,10 @@ This is the speed/quality comparison required by T-504. It has two layers:
    memory. The numbers below were captured on the development machine
    (CPU-only; no ROCm device was available). They are a reproducibility
    baseline, **not** 7900 XTX numbers. The exact GPU command is in
-   [Running on the 7900 XTX](#running-on-the-7900-xtx).
+   [Running on the 7900 XTX](#running-on-the-7900-xtx). For a practical
+   tuning walkthrough — VRAM budget, measured RX 7900 XTX numbers,
+   batch/context trade-offs and the OOM playbook — see
+   [`scaling_7900xtx.md`](scaling_7900xtx.md).
 
 ## Model scale (all profiles)
 
@@ -66,14 +69,20 @@ the GPU. `--device auto`/`cuda` uses ROCm through torch's CUDA API, and
 
 ```bash
 # Smoke-fit every rung (needs a corpus large enough for 1024-token windows)
-python -m scripts.benchmark --profiles all --corpus /path/to/full_de --steps 20
+python -m scripts.benchmark --profiles all --corpus /path/to/full_de \
+    --tokenizer-bundle /path/to/bundle --steps 20
 
 # Longer, steadier measurement for the two profiles that fit VRAM comfortably
-python -m scripts.benchmark --profiles small medium --steps 200 --device cuda
+python -m scripts.benchmark --profiles small medium --corpus /path/to/full_de \
+    --tokenizer-bundle /path/to/bundle --steps 200 --device cuda
 
 # The largest rung; watch memory, then run its full max_steps for quality
-python -m scripts.benchmark --profiles max_7900xtx --corpus /path/to/full_de --steps 50
+python -m scripts.benchmark --profiles max_7900xtx --corpus /path/to/full_de \
+    --tokenizer-bundle /path/to/bundle --steps 50
 ```
+
+Pass `--tokenizer-bundle` on a full corpus: without it the benchmark trains
+BPE from scratch in pure Python, which can dominate the measurement time.
 
 Each run writes:
 
