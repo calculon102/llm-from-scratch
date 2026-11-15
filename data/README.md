@@ -34,6 +34,37 @@ folder. Expected: all four files decode and the duplicate line in
 survives the default `min_line_chars: 2`; raise the threshold (e.g. to
 12) to watch the short-line filter remove it.
 
+## Fetching sources — `scripts.corpus` (T-601)
+
+Corpus sources are registered in `core/corpus/sources.py` and fetched
+into a local, gitignored cache (`data/raw/cache/`). One command both
+downloads/copies the files and records them in
+`data/corpus_manifest.json` under a `cache` section:
+
+```sh
+# Fetch the tiny bundled German sample (offline, default)
+.venv/bin/python -m scripts.corpus fetch
+
+# Fetch a specific source, or every registered source including the
+# large opt-in dumps
+.venv/bin/python -m scripts.corpus fetch --source gutenberg_de_catalog
+.venv/bin/python -m scripts.corpus fetch --all
+
+# Cache-only: fail if a source was never fetched
+.venv/bin/python -m scripts.corpus fetch --offline
+
+# Inspect the registry / what the manifest currently records
+.venv/bin/python -m scripts.corpus list
+.venv/bin/python -m scripts.corpus status
+```
+
+Every file is downloaded to a `.part` entry and renamed atomically;
+when a source declares a size or SHA-256 it is verified before the cache
+is updated, and a corrupt/truncated download is refused. The registry is
+German-first and records the licence of each source. `wikipedia_de_dump`
+(~8 GiB, CC BY-SA 4.0) and `gutenberg_de_catalog` are opt-in because they
+are large; the default fetch uses only the CC0 sample.
+
 ## `corpus_de/` — local German training corpus
 
 This directory is created locally by the corpus preparation step and is

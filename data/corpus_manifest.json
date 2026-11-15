@@ -56,5 +56,25 @@
     "path": "data/corpus_de/tokenizer",
     "vocab_size": 4096,
     "trained_on": "data/raw/tokenizer_sample.txt (~1 MiB sample)"
+  },
+  "cache": {
+    "path": "data/raw/cache",
+    "updated_at": "2026-11-15T12:57:21+00:00",
+    "sources": {
+      "sample_de": {
+        "name": "sample_de",
+        "url": "data/sample_de",
+        "path": "data/raw/cache/sample_de",
+        "kind": "directory",
+        "language": "de",
+        "license": "CC0-1.0",
+        "description": "Bundled noisy German sample (4 files, UTF-8/CP1252/BOM/CRLF).",
+        "bytes": 1907,
+        "files": 4,
+        "sha256": "561f1019a401c5a196ef46c8691a9fb802fedd6e04510b6efc264d571862325b",
+        "status": "copied",
+        "fetched_at": "2026-11-15T12:57:21+00:00"
+      }
+    }
   }
 }
