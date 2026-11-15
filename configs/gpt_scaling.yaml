@@ -9,7 +9,7 @@
 # The preset values live in core/scaling.py (PROFILE_PRESETS).  Any key
 # added below overrides the preset, e.g. to halve the batch size on OOM.
 run_name: gpt_scaling
-profile: tiny_debug
+profile: small
 profile_defaults: true
 phase: gpt
 output_dir: artifacts

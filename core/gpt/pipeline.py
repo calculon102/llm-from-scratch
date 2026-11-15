@@ -205,7 +205,11 @@ def prepare_gpt_data(
             seed=int(cfg.get("seed", 42)),
         )
     except ValueError as exc:
-        raise GPTPipelineError(str(exc)) from exc
+        raise GPTPipelineError(
+            f"{exc} (corpus {corpus_path} encoded to {len(token_ids)} tokens; "
+            "point phase_config.corpus_path at a larger corpus or lower "
+            "phase_config.context_length)"
+        ) from exc
 
     return GPTData(
         tokenizer=tokenizer,

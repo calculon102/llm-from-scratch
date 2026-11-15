@@ -19,6 +19,7 @@ import core.gpt
 from core.config import ConfigError, load_config, validate_config
 from core.gpt import (
     GPTConfig,
+    GPTPipelineError,
     LMChunkDataset,
     MiniGPT,
     build_gpt_phase,
@@ -78,6 +79,13 @@ def test_effective_phase_config_and_validation() -> None:
         )
     with pytest.raises(ConfigError, match="unknown key"):
         validate_config({"phase": "gpt", "phase_config": {"width": 32}})
+
+
+def test_corpus_too_short_for_context_reports_corpus_and_remedy() -> None:
+    cfg = tiny_cfg()
+    cfg["phase_config"]["context_length"] = 10_000
+    with pytest.raises(GPTPipelineError, match="phase_config.corpus_path"):
+        prepare_gpt_data(cfg)
 
 
 def test_phase_builds_model_with_tokenizer_vocabulary() -> None:

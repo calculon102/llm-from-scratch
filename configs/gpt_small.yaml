@@ -7,3 +7,5 @@ profile: small
 profile_defaults: true
 phase: gpt
 output_dir: artifacts
+max_steps: 60000
+epochs: 3

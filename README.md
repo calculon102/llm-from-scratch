@@ -311,8 +311,11 @@ quick config instead:
 Switch rungs by changing `profile:` in `configs/gpt_de_small.yaml`; the
 corpus and tokenizer paths in its `phase_config` stay valid for every
 rung. The generic per-rung configs (`gpt_tiny_train.yaml`,
-`gpt_medium.yaml`, `gpt_max_7900xtx.yaml`) point at the tiny sample
-corpus unless you copy this `phase_config` across.
+`gpt_small.yaml`, `gpt_medium.yaml`) point at the tiny sample corpus; at
+16-512 token contexts the sample still yields a (toy) batch or two.
+`gpt_max_7900xtx.yaml` instead carries the same `phase_config` as
+`gpt_de_small.yaml`, because a 1024-token context needs more text than
+the sample contains.
 
 #### Inspect the run
 

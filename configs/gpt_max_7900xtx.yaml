@@ -1,10 +1,22 @@
 # M5 scaling profile: max_7900xtx (best single-GPU attempt).
 # Values come from core.scaling.PROFILE_PRESETS["max_7900xtx"].
-# Sized for 24 GB VRAM with AMP; needs the larger M6 corpus for a
-# meaningful run.  Verify the fit first with:
+# Sized for 24 GB VRAM with AMP.  Verify the fit first with:
 #   python -m scripts.benchmark --profiles max_7900xtx --steps 5
+#
+# Data: the rung's 1024-token context cannot be trained on the bundled
+# data/sample_de (its ~1k tokens are shorter than one window), so this
+# config points at the local German corpus like configs/gpt_de_small.yaml
+# does.  data/corpus_de/ is gitignored; see data/README.md to build it.
+#
+# The reusable 4096-entry BPE bundle from configs/tokenizer_de.yaml is
+# reused instead of training the preset's 16k vocab target: pure-Python BPE
+# on ~266 MiB of text is prohibitively slow.  The model therefore reports
+# the bundle's actual vocabulary (4096) in the run metadata.
 run_name: gpt_max_7900xtx
 profile: max_7900xtx
 profile_defaults: true
 phase: gpt
 output_dir: artifacts
+phase_config:
+  corpus_path: data/corpus_de
+  tokenizer_bundle: data/corpus_de/tokenizer
