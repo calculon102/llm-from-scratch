@@ -139,6 +139,7 @@ __all__ = [
     "validate_gpt_phase_config",
     "gpt_defaults",
     "build_gpt_phase",
+    "build_gpt_phase_from_data",
 ]
 
 
@@ -289,15 +290,13 @@ def _make_save_callback(data: GPTData, cfg: dict):
     return _on_end
 
 
-def build_gpt_phase(cfg: dict) -> PhaseBundle:
-    """Build the GPT :class:`PhaseBundle` for the shared Trainer.
+def build_gpt_phase_from_data(cfg: dict, data: GPTData) -> PhaseBundle:
+    """Build the Trainer bundle from already-prepared GPT data.
 
-    Ingests the corpus, trains/reuses the tokenizer, chunks the token
-    stream, constructs :class:`MiniGPT`, and wires cross-entropy plus
-    token-weighted perplexity evaluation.  The ``on_end`` callback writes
-    the model and tokenizer into the run folder.
+    Used by :func:`build_gpt_phase` and by the end-to-end pipeline
+    (T-603), which prepares the corpus/tokenizer itself so it can persist
+    the intermediate stages exactly once.
     """
-    data = prepare_gpt_data(cfg)
     model = build_gpt_model(data)
     val_dataset = data.datasets.val_dataset
     return PhaseBundle(
@@ -310,6 +309,17 @@ def build_gpt_phase(cfg: dict) -> PhaseBundle:
         # T-502: every window position predicts one next token.
         token_count_fn=lambda batch: int(batch["targets"].numel()),
     )
+
+
+def build_gpt_phase(cfg: dict) -> PhaseBundle:
+    """Build the GPT :class:`PhaseBundle` for the shared Trainer.
+
+    Ingests the corpus, trains/reuses the tokenizer, chunks the token
+    stream, constructs :class:`MiniGPT`, and wires cross-entropy plus
+    token-weighted perplexity evaluation.  The ``on_end`` callback writes
+    the model and tokenizer into the run folder.
+    """
+    return build_gpt_phase_from_data(cfg, prepare_gpt_data(cfg))
 
 
 # Registration happens at import time, before any config is loaded by the

@@ -180,6 +180,36 @@ The architecture, causal mask, LM objective, perplexity and sampling math
 are documented in
 [docs/math/phase4_transformer.md](docs/math/phase4_transformer.md).
 
+### End-to-end pipeline (M6)
+
+Run preprocessing, tokenizer training, MiniGPT training and evaluation in
+one command and one run folder:
+
+```bash
+python -m scripts.pipeline --config configs/gpt_tiny_debug.yaml
+python -m scripts.pipeline --config configs/gpt_de_quick.yaml \
+    --profile moderate_clean --max-new-tokens 120
+```
+
+The command always performs the full educational flow:
+
+1. **Preprocess** the configured corpus with a reproducible profile
+   (`minimal_clean` or `moderate_clean`) into `corpus/cleaned.txt`, with
+   per-file statistics and input/output hashes.
+2. **Train the tokenizer** (character + BPE) on exactly that cleaned text
+   and save it under `tokenizers/`.
+3. **Train MiniGPT** through the shared Trainer, reusing the same corpus
+   stream and tokenizer, so the token ids cannot drift between stages.
+4. **Evaluate** token-weighted validation perplexity and generate a
+   deterministic sample with the configured seed.
+
+Every run also gets `eval/report.json`, `eval/sample.txt`, the normal
+`config.yaml`/`run.log`/`metrics.jsonl`/`checkpoints/`, and a
+`pipeline.json` that records stage settings, hashes, timings and metrics.
+Pipeline-only choices are CLI flags (`--profile`, `--input`,
+`--max-new-tokens`, `--temperature`, `--top-k`, `--top-p`,
+`--sample-seed`, `--output-dir`); the YAML file is a normal GPT config.
+
 ### Scaling on the 7900 XTX (M5)
 
 Profiles follow the ladder `tiny_debug → tiny_train → small → medium →

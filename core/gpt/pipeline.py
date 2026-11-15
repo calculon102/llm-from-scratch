@@ -148,6 +148,8 @@ def prepare_gpt_data(
     cfg: dict,
     *,
     base_dir: str | Path = REPO_ROOT,
+    corpus: Corpus | None = None,
+    tokenizer: TokenizerBundle | None = None,
 ) -> GPTData:
     """Load/train a tokenizer, encode the corpus and chunk it for LM training.
 
@@ -156,27 +158,34 @@ def prepare_gpt_data(
     bundle is trained on the cleaned corpus.  The tokenizer is copied into
     the GPT run by :func:`save_gpt_artifacts`, so generation can reproduce
     the exact id↔text mapping.
+
+    The pipeline command (T-603) may pass an already-cleaned ``corpus``
+    and an already-trained ``tokenizer`` so that preprocessing and
+    tokenizer training happen exactly once and the GPT phase encodes that
+    same stream.
     """
     pc = effective_phase_config(cfg)
     bundle_path = str(pc.get("tokenizer_bundle", "") or "").strip()
     corpus_path = resolve_corpus_path(pc["corpus_path"], base_dir)
-    corpus = ingest_corpus(corpus_path, CorpusOptions.from_phase_config(pc))
+    if corpus is None:
+        corpus = ingest_corpus(corpus_path, CorpusOptions.from_phase_config(pc))
     if not corpus.text.strip():
         raise GPTPipelineError(f"corpus is empty after cleaning: {corpus_path}")
 
-    if bundle_path:
-        resolved = Path(bundle_path)
-        if not resolved.is_absolute():
-            resolved = Path(base_dir) / resolved
-        tokenizer = load_bundle(resolved)
-    else:
-        tokenizer = train_bundle(
-            corpus.text,
-            vocab_size=int(pc["vocab_size"]),
-            min_frequency=int(pc["min_frequency"]),
-            max_token_length=int(pc["max_token_length"]),
-            source=str(pc["corpus_path"]),
-        )
+    if tokenizer is None:
+        if bundle_path:
+            resolved = Path(bundle_path)
+            if not resolved.is_absolute():
+                resolved = Path(base_dir) / resolved
+            tokenizer = load_bundle(resolved)
+        else:
+            tokenizer = train_bundle(
+                corpus.text,
+                vocab_size=int(pc["vocab_size"]),
+                min_frequency=int(pc["min_frequency"]),
+                max_token_length=int(pc["max_token_length"]),
+                source=str(pc["corpus_path"]),
+            )
 
     token_ids = tokenizer.bpe.encode(
         corpus.text, add_special_tokens=bool(pc["add_special_tokens"])
