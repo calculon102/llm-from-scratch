@@ -21,6 +21,7 @@ logs/
 data/raw/
 data/corpus_de/
 data/corpus_de_quick/
+data/processed/
 
 # IDE / OS
 .idea/

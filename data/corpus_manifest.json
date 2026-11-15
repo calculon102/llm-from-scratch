@@ -76,5 +76,69 @@
         "fetched_at": "2026-11-15T12:57:21+00:00"
       }
     }
+  },
+  "preprocessed": {
+    "minimal_clean": {
+      "path": "data/processed/minimal_clean",
+      "input_digest": "3732a622fa4807a885e681a5f12da49c15868a893f5d890789799f5ae66c32a3",
+      "output_sha256": "f4db90330a63e9639df3a90ea373b7b9d344c7794f2f65b20fe3ea0c4f12367b",
+      "bytes": 1903,
+      "chars": 1847,
+      "lines": 16,
+      "files": 4,
+      "inputs": [
+        "/home/frank/src/training/llm-from-scratch/data/raw/cache/sample_de/archiv_cp1252.txt",
+        "/home/frank/src/training/llm-from-scratch/data/raw/cache/sample_de/rechtschreibung_bom.txt",
+        "/home/frank/src/training/llm-from-scratch/data/raw/cache/sample_de/sprache_und_schrift.txt",
+        "/home/frank/src/training/llm-from-scratch/data/raw/cache/sample_de/stadtnotizen.txt"
+      ],
+      "profile_options": {
+        "min_line_chars": 1,
+        "max_line_chars": 0,
+        "min_alpha_ratio": 0.0,
+        "drop_duplicates": false,
+        "lowercase": false,
+        "encodings": [
+          "utf-8-sig",
+          "utf-8",
+          "cp1252",
+          "latin-1"
+        ],
+        "extensions": [
+          ".txt"
+        ]
+      }
+    },
+    "moderate_clean": {
+      "path": "data/processed/moderate_clean",
+      "input_digest": "3732a622fa4807a885e681a5f12da49c15868a893f5d890789799f5ae66c32a3",
+      "output_sha256": "5b8b3dd509f38601e6f1f6fe5df42159ff2adeb73796ce76fc4afda20be2bb4c",
+      "bytes": 1805,
+      "chars": 1751,
+      "lines": 14,
+      "files": 4,
+      "inputs": [
+        "/home/frank/src/training/llm-from-scratch/data/raw/cache/sample_de/archiv_cp1252.txt",
+        "/home/frank/src/training/llm-from-scratch/data/raw/cache/sample_de/rechtschreibung_bom.txt",
+        "/home/frank/src/training/llm-from-scratch/data/raw/cache/sample_de/sprache_und_schrift.txt",
+        "/home/frank/src/training/llm-from-scratch/data/raw/cache/sample_de/stadtnotizen.txt"
+      ],
+      "profile_options": {
+        "min_line_chars": 12,
+        "max_line_chars": 2000,
+        "min_alpha_ratio": 0.3,
+        "drop_duplicates": true,
+        "lowercase": false,
+        "encodings": [
+          "utf-8-sig",
+          "utf-8",
+          "cp1252",
+          "latin-1"
+        ],
+        "extensions": [
+          ".txt"
+        ]
+      }
+    }
   }
 }

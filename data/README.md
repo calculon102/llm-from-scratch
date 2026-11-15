@@ -65,6 +65,37 @@ German-first and records the licence of each source. `wikipedia_de_dump`
 (~8 GiB, CC BY-SA 4.0) and `gutenberg_de_catalog` are opt-in because they
 are large; the default fetch uses only the CC0 sample.
 
+## Preprocessing profiles — `scripts.corpus preprocess` (T-602)
+
+`preprocess` turns fetched sources into a deterministic corpus directory
+with `cleaned.txt`, `report.json` and `manifest.json`:
+
+```sh
+# Uses directory/text sources registered by 'corpus fetch'
+.venv/bin/python -m scripts.corpus preprocess --profile minimal_clean
+.venv/bin/python -m scripts.corpus preprocess --profile moderate_clean
+
+# Or point it at any file/directory
+.venv/bin/python -m scripts.corpus preprocess \
+  --profile moderate_clean --input data/sample_de --output /tmp/corpus
+```
+
+| Profile | Behaviour |
+| --- | --- |
+| `minimal_clean` | Decode, NFC-normalize, collapse whitespace, drop empty lines; keeps short lines, duplicates and casing. |
+| `moderate_clean` | Also drops lines shorter than 12 chars and lines that are <30% alphabetic, deduplicates lines globally, and truncates lines over 2000 chars. |
+
+`manifest.json` records the profile options, SHA-256 of every input, an
+ordered input digest, and the output SHA-256/byte/character/line counts —
+without timestamps. Running the same command twice therefore produces
+byte-identical `cleaned.txt`, `report.json` and `manifest.json`. The
+processed directory is gitignored (`data/processed/`), but each run is
+registered under `preprocessed.<profile>` in
+`data/corpus_manifest.json` and shown by `scripts.corpus status`.
+
+Point a tokenizer config's `phase_config.corpus_path` at the processed
+directory to train on exactly this stream.
+
 ## `corpus_de/` — local German training corpus
 
 This directory is created locally by the corpus preparation step and is
